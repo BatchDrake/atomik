@@ -1,6 +1,8 @@
 #ifndef _BITS_ALLTYPES_H
 #define _BITS_ALLTYPES_H
 
+#include <stdalign.h>
+
 #define _Addr int
 #define _Int64 long long
 #define _Reg int
