@@ -80,5 +80,6 @@ AC_OUTPUT([
   Makefile
   musl/Makefile
   src/Makefile
+  src/cap/Makefile
   src/arch/i386/Makefile
 ])

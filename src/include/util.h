@@ -26,7 +26,7 @@
 #define STRINGIFY(x) _STRINGIFY(x)
 
 #define CPPASSERT(expr) \
-  typedef char JOIN (JOIN (__compiler_assert, __FILE_ID), \
+  typedef char JOIN (JOIN (__compiler_assert_, __FILE_ID), \
                      __LINE__) [2 * !!(expr) - 1]
 
 # ifdef __GNUC__
