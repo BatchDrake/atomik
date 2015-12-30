@@ -24,9 +24,15 @@
 void
 main (void)
 {
+  void *free_start;
+  size_t free_size;
+  
   machine_init ();
 
+  __arch_get_free_memory (&free_start, &free_size);
+  
   printf ("Hello world (main loaded at %p)!\n", main);
+  printf ("Free memory starts at %p (%d bytes)\n", free_start, free_size);
   
   __arch_machine_halt ();
 }

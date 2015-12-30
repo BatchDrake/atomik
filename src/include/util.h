@@ -25,6 +25,10 @@
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
 
+#define CPPASSERT(expr) \
+  typedef char JOIN (JOIN (__compiler_assert, __FILE_ID), \
+                     __LINE__) [2 * !!(expr) - 1]
+
 # ifdef __GNUC__
 #  define PACKED            __attribute__ ((packed))
 #  define ALIGNED(x)        __attribute__ ((aligned (x)))

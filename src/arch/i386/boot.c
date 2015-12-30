@@ -31,6 +31,10 @@
 
 void main (void);
 
+/* Global variables */
+void  *free_start;
+size_t free_size;
+
 /* Symbols provided by linker */
 extern int kernel_start;
 extern int kernel_end;
@@ -48,6 +52,8 @@ BOOT_FUNCTION (void boot_fix_multiboot (void));
 
 /* Symbols required by extern files */
 BOOT_SYMBOL (uint32_t __free_start);
+BOOT_SYMBOL (uint32_t __free_size);
+
 BOOT_SYMBOL (void *initrd_phys) = NULL;
 BOOT_SYMBOL (void *initrd_start) = NULL;
 BOOT_SYMBOL (uint32_t initrd_size) = 0;
@@ -73,6 +79,7 @@ BOOT_SYMBOL (static char string4[]) = " bytes)\n";
 BOOT_SYMBOL (static char string5[]) = "Kernel virtual base address is 0x";
 BOOT_SYMBOL (static char string6[]) = "\n\nConfiguring inital virtual address space...\n";
 BOOT_SYMBOL (static char string7[]) = "\nMemory configuration done, switching to virtual memory and booting Atomik...\n";
+BOOT_SYMBOL (static char string8[]) = "Multiboot configuration error: can't find high memory region\n";
 
 /* Some static functions not needed outside */
 BOOT_FUNCTION (static void boot_setup_vregion (uint32_t, uint32_t, uint32_t));
@@ -327,7 +334,7 @@ boot_prepare_paging_early (void)
   uint32_t page_count;
   uint32_t page_phys_start;
   uint32_t page_virt_start;
-  
+  uint32_t highest_addr;
   uint32_t i;
   uint32_t mmap_count;
   char errmsg[] = "No memory maps in MBI!";
@@ -371,6 +378,8 @@ boot_prepare_paging_early (void)
   /* Remap initrd to upperhalf aswell (if any) */
   if (initrd_size > 0)
     initrd_start = (void *) ((uint32_t) initrd_phys + PAGE_START ((uint32_t) &text_start) - PAGE_START ((uint32_t) &kernel_start));
+
+  highest_addr = 0;
   
   for (i = 0; i < mmap_count; ++i)
   {    
@@ -381,10 +390,21 @@ boot_prepare_paging_early (void)
     page_phys_start = mmap_info->base_addr_low >> 12;
     page_virt_start = page_phys_start;
 
+    if (mmap_info->base_addr_low <= free_mem &&
+        free_mem < (mmap_info->base_addr_low + mmap_info->length_low))
+      highest_addr = mmap_info->base_addr_low + mmap_info->length_low;
+    
     boot_setup_vregion (page_phys_start, page_virt_start, page_count);
   }
 
+  if (highest_addr == 0)
+  {
+    boot_puts (string7);
+    boot_halt ();
+  }
+  
   __free_start = (uint32_t) &page_table_list[page_table_count];
+  __free_size  = highest_addr - __free_start;
 }
 
 void
@@ -445,6 +465,9 @@ boot_entry (void)
   
   SET_REGISTER ("%cr0", cr0);
 
+  free_start = (void *) __free_start;
+  free_size  = (size_t) __free_size;
+  
   boot_screen_clear (0x07);
   
   main ();

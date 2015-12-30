@@ -27,7 +27,10 @@ void __arch_debug_putchar (uint8_t);
 /* Halt machine */
 void __arch_machine_halt (void);
 
- /* Initialize hardware (generic way) */
+/* Get free memory layout */
+void __arch_get_free_memory (void **, size_t *);
+
+/* Initialize hardware (generic way) */
 void machine_init (void);
 
 #endif /* _ARCH_H */

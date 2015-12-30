@@ -20,6 +20,9 @@
 
 #include <i386-serial.h>
 
+extern void  *free_start;
+extern size_t free_size;
+
 void
 __arch_machine_halt (void)
 {
@@ -31,6 +34,13 @@ void
 __arch_debug_putchar (uint8_t c)
 {
   (void) i386_serial_putchar (0, c);
+}
+
+void
+__arch_get_free_memory (void **pfree_start, size_t *pfree_size)
+{
+  *pfree_start = free_start;
+  *pfree_size  = free_size;
 }
 
 void
