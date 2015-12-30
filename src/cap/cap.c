@@ -16,7 +16,10 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
+#include <stdio.h>
+#include <arch.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <atomik/cap.h>
 
@@ -31,6 +34,16 @@
     }                                                   \
     return NULL;                                        \
   }
+
+void
+cnode_init (capslot_t *cnode)
+{
+  ATOMIK_ASSERT (cnode->object_type == ATOMIK_OBJTYPE_CNODE);
+  
+  memset (ATOMIK_CAPSLOT_GET_OBJECT_ADDR (cnode),
+          0,
+          1 << (cnode->cnode.size_bits + ATOMIK_CAPSLOT_SIZE_BITS));
+}
 
 capslot_t *
 capslot_lookup (capslot_t *root, cptr_t addr, unsigned char depth, struct caplookup_exception_info *info)
@@ -62,7 +75,7 @@ capslot_lookup (capslot_t *root, cptr_t addr, unsigned char depth, struct caploo
                             bits_resolved,
                             0)
   
-  leaf = (capslot_t *) CAPSLOT_OBJECT_ADDR (root) + entry;
+  leaf = (capslot_t *) ATOMIK_CAPSLOT_GET_OBJECT_ADDR (root) + entry;
 
   depth -= bits_resolved;
   addr <<= bits_resolved;

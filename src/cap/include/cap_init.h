@@ -1,5 +1,5 @@
 /*
- *    main.c: the Atomik microkernel entrypoint
+ *    cap_init.h: Definitions for the initial set of capabilities
  *    Copyright (C) 2015  Gonzalo J. Carracedo
  *
  *    This program is free software: you can redistribute it and/or modify
@@ -16,36 +16,16 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#include <atomik/atomik.h>
+#ifndef _CAP_INIT_H
+#define _CAP_INIT_H
+
+#include <machinedefs.h>
 #include <atomik/cap.h>
 
-#include <stdio.h>
-#include <arch.h>
+#define ATOMIK_INIT_CAP_CNODE_SIZE (PAGE_BITS - ATOMIK_CAPSLOT_SIZE_BITS)
+#define ATOMIK_INIT_CAP_GUARD_BITS 4
+#define ATOMIK_INIT_CAP_GUARD      0xa
 
-void
-main (void)
-{
-  int i;
 
-  capslot_t root;
-  capslot_t *entry;
-  
-  machine_init ();
 
-  capabilities_init (&root);
-
-  entry = (capslot_t *) ATOMIK_CAPSLOT_GET_OBJECT_ADDR (&root);
-
-  for (i = 0; i < (1 << root.cnode.size_bits); ++i)
-    if (entry[i].object_type == ATOMIK_OBJTYPE_UNTYPED)
-      printf ("Entry 0x%02x: %p (%d bits)\n",
-              i,
-              ATOMIK_CAPSLOT_GET_OBJECT_ADDR (entry + i),
-              entry[i].ut.size_bits);
-
-  entry = capslot_lookup (&root, 0xa0100000, 12, NULL);
-
-  printf ("Slot resolved: %p\n", entry);
-  
-  __arch_machine_halt ();
-}
+#endif /* _CAP_INIT_H */

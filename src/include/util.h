@@ -51,4 +51,12 @@
 #define PAGE_TABLE(addr)     (( (uintptr_t) addr) >> (VIRT_ADDR_BITS - PAGE_BITS)))
 #define PAGE_ENTRY(addr)     ((((uintptr_t) addr) >> PAGE_BITS) & (PAGE_ENTRIES - 1))
 
+#define ATOMIK_ASSERT(expr)                                             \
+  if (!(expr))                                                          \
+  {                                                                     \
+    printf ("atomik: assertion failed in %s:%d\n"                       \
+            "atomik: condition \"" STRINGIFY (expr) "\" not met\n");    \
+    __arch_machine_halt ();                                             \
+  }
+
 #endif /* _UTIL_H */

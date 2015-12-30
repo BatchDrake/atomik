@@ -28,15 +28,19 @@
 
 #if defined (__i386__)
 #  define ATOMIK_CAPSLOT_SIZE_BITS 4
+#  define ATOMIK_CAPSLOT_ADDR_BITS 28
 #elif defined (__x86_64__)
 #  define ATOMIK_CAPSLOT_SIZE_BITS 5
+#  define ATOMIK_CAPSLOT_ADDR_BITS 60
 #else
 #  error Unsupported architecture
 #endif
 
 #define ATOMIK_CAPSLOT_SIZE (1 << ATOMIK_CAPSLOT_SIZE_BITS)
-#define CAPSLOT_OBJECT_ADDR(capslot) \
+#define ATOMIK_CAPSLOT_GET_OBJECT_ADDR(capslot) \
   ((void *) ((capslot)->base << 4))
+#define ATOMIK_CAPSLOT_SET_OBJECT_ADDR(capslot, addr)   \
+  (capslot)->base = (uintptr_t) addr >> 4;
 
 enum objtype
 {
@@ -52,34 +56,22 @@ struct capslot
 {
   objtype_t object_type:4;  /* Up to 16 object types */
   
-#if defined (__i386__)
-  uint32_t base:28;
-#elif defined (__x86_64__)
-  uint64_t base:60;
-#endif
-
+  uintptr_t base:ATOMIK_CAPSLOT_ADDR_BITS;
 
   union
   {
     /* Capability as untyped memory */
     struct
     {
-      uint8_t size_bits:5;
-#if defined (__i386__)
-      uint32_t unused:27;
-#elif defined (__x86_64__)
-      uint64_t unused:59;
-#endif
+      uint8_t size_bits:6; /* Size in log(bytes) */
     }
     ut;
 
     /* Capability as CNode */
     struct
     {
-      uint8_t size_bits:5;
-      
+      uint8_t size_bits:5; /* Size in log(entries) */      
       uint8_t guard_bits:4;
-      
       uint16_t guard;
     }
     cnode;
@@ -92,13 +84,8 @@ struct capslot
     page;
   };
   
-#if defined (__i386__)
-  uint32_t mdb_prev:28;
-  uint32_t mdb_next:28;
-#elif defined (__x86_64__)
-  uint64_t mdb_prev:60;
-  uint64_t mdb_next:60;
-#endif
+  uintptr_t mdb_prev:ATOMIK_CAPSLOT_ADDR_BITS;
+  uintptr_t mdb_next:ATOMIK_CAPSLOT_ADDR_BITS;
 };
 
 typedef struct capslot capslot_t;
@@ -132,6 +119,10 @@ struct caplookup_exception_info
   uint8_t guard_bits;
 };
 
+void cnode_init (capslot_t *);
+
 capslot_t *capslot_lookup (capslot_t *, cptr_t, unsigned char, struct caplookup_exception_info *);
+
+void capabilities_init (capslot_t *);
 
 #endif /* _ATOMIK_CAP_H */
