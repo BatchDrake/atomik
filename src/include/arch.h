@@ -30,6 +30,9 @@ void __arch_machine_halt (void);
 /* Get free memory layout */
 void __arch_get_free_memory (void **, size_t *);
 
+/* Get kernel object remap area */
+void __arch_get_kernel_remap (void **, size_t *);
+
 /* Initialize hardware (generic way) */
 void machine_init (void);
 

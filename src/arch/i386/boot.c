@@ -34,6 +34,8 @@ void main (void);
 /* Global variables */
 void  *free_start;
 size_t free_size;
+void  *remap_start;
+size_t remap_size;
 
 /* Symbols provided by linker */
 extern int kernel_start;
@@ -53,6 +55,8 @@ BOOT_FUNCTION (void boot_fix_multiboot (void));
 /* Symbols required by extern files */
 BOOT_SYMBOL (uint32_t __free_start);
 BOOT_SYMBOL (uint32_t __free_size);
+BOOT_SYMBOL (uint32_t __remap_start);
+BOOT_SYMBOL (uint32_t __remap_size);
 
 BOOT_SYMBOL (void *initrd_phys) = NULL;
 BOOT_SYMBOL (void *initrd_start) = NULL;
@@ -335,6 +339,7 @@ boot_prepare_paging_early (void)
   uint32_t page_phys_start;
   uint32_t page_virt_start;
   uint32_t highest_addr;
+  uint32_t highest_kernel_remap_addr;
   uint32_t i;
   uint32_t mmap_count;
   char errmsg[] = "No memory maps in MBI!";
@@ -368,9 +373,6 @@ boot_prepare_paging_early (void)
     page_dir->entries[i] = 0;
 
   mmap_count = mbi->mmap_length / sizeof (memory_map_t);
-  
-  /* Map microkernel to upperhalf */
-  boot_setup_vregion ((uint32_t) &kernel_start >> 12, (uint32_t) &text_start >> 12, __UNITS (free_mem - (uint32_t) &kernel_start, PAGE_SIZE));
 
   /* Map video memory */
   boot_setup_vregion ((uint32_t) VIDEO_BASE >> 12, (uint32_t) VIDEO_BASE >> 12, 1);
@@ -402,9 +404,21 @@ boot_prepare_paging_early (void)
     boot_puts (string7);
     boot_halt ();
   }
+
+  highest_kernel_remap_addr = highest_addr;
+
+  if (highest_kernel_remap_addr > (KERNEL_BASE + KERNEL_REMAP_MAX))
+    highest_kernel_remap_addr = KERNEL_BASE + KERNEL_REMAP_MAX;
   
-  __free_start = (uint32_t) &page_table_list[page_table_count];
-  __free_size  = highest_addr - __free_start;
+  /* Map microkernel to upperhalf */
+  boot_setup_vregion ((uint32_t) &kernel_start >> 12, (uint32_t) &text_start >> 12, __UNITS (highest_kernel_remap_addr - (uint32_t) &kernel_start, PAGE_SIZE));
+
+  
+  __free_start  = (uint32_t) &page_table_list[page_table_count];
+  __free_size   = highest_addr - __free_start;
+
+  __remap_start = __free_start - (uint32_t) &kernel_start + (uint32_t) &text_start;
+  __remap_size  = highest_kernel_remap_addr - __free_start;
 }
 
 void
@@ -467,7 +481,10 @@ boot_entry (void)
 
   free_start = (void *) __free_start;
   free_size  = (size_t) __free_size;
-  
+
+  remap_start = (void *) __remap_start;
+  remap_size  = (size_t) __remap_size;
+
   boot_screen_clear (0x07);
   
   main ();

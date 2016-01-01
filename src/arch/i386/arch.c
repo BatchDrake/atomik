@@ -23,6 +23,9 @@
 extern void  *free_start;
 extern size_t free_size;
 
+extern void  *remap_start;
+extern size_t remap_size;
+
 void
 __arch_machine_halt (void)
 {
@@ -41,6 +44,13 @@ __arch_get_free_memory (void **pfree_start, size_t *pfree_size)
 {
   *pfree_start = free_start;
   *pfree_size  = free_size;
+}
+
+void
+__arch_get_kernel_remap (void **premap_start, size_t *premap_size)
+{
+  *premap_start = remap_start;
+  *premap_size  = remap_size;
 }
 
 void

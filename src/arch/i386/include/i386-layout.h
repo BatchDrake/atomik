@@ -20,6 +20,7 @@
 #define _ARCH_I386_H
 
 #define KERNEL_BASE              0xd0000000 /* The kernel starts here */
+#define KERNEL_REMAP_MAX         0x20000000 /* 512 MiB of kernel objects max */
 
 #define BOOT_FUNCTION(expr)     expr __attribute__ ((section (".bootcode")))
 #define BOOT_SYMBOL(expr)       expr __attribute__ ((section (".bootdata")))

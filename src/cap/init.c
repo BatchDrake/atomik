@@ -16,6 +16,7 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <atomik/cap.h>
 #include <arch.h>
@@ -29,13 +30,20 @@ capabilities_init (capslot_t *root)
   void  *free_start;
   size_t free_size;
 
+  void  *remap_start;
+  size_t remap_size;
+
   uintptr_t curr_block;
   
   unsigned int i, n;
   
   __arch_get_free_memory (&free_start, &free_size);
+  __arch_get_kernel_remap (&remap_start, &remap_size);
+
+  printf ("Free  memory: %p (%d bytes)\n", free_start,  free_size);
+  printf ("Remap memory: %p (%d bytes)\n", remap_start, remap_size);
   
-  cap        = (capslot_t *) free_start;
+  cap        = (capslot_t *) remap_start;
   curr_block = (uintptr_t)   free_start + PAGE_SIZE;
 
   /* In the worst case scenario (64 bits, fully unaligned memory)
