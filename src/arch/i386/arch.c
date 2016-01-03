@@ -19,6 +19,9 @@
 #include <arch.h>
 
 #include <i386-serial.h>
+#include <i386-int.h>
+#include <i386-irq.h>
+#include <i386-seg.h>
 
 extern void  *free_start;
 extern size_t free_size;
@@ -57,4 +60,7 @@ void
 machine_init (void)
 {
   i386_serial_init ();
+  i386_seg_init ();
+  i386_init_all_gates ();
+  i386_early_irq_init ();
 }

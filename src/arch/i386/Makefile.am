@@ -12,11 +12,19 @@ libi386_a_SOURCES = \
 	arch.c \
 	boot.c \
 	boot-i386.S \
+        int.c \
+        int-i386.S \
+        irq.c \
+        seg.c \
+        seg-i386.S \
 	serial.c \
 	include/i386-io.h \
+        include/i386-int.h \
+        include/i386-irq.h \
 	include/i386-layout.h \
 	include/i386-page.h \
 	include/i386-regs.h \
+        include/i386-seg.h \
 	include/i386-serial.h \
 	include/i386-vga.h \
 	include/machinedefs.h \

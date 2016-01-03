@@ -1,8 +1,6 @@
 /*
- *    machinedefs.h: Architecture-specific parameters needed by the
- *    machine-independent code of the microkernel.
- *
- *    Copyright (C) 2014  Gonzalo J. Carracedo
+ *    i386-tcb.h: i386 TCB definitions
+ *    Copyright (C) 2015  Gonzalo J. Carracedo
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -18,14 +16,16 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#ifndef _ARCH_MACHINEDEFS_H
-#define _ARCH_MACHINEDEFS_H
+#ifndef _ARCH_I386_TCB_H
+#define _ARCH_I386_TCB_H
 
-#include <i386-tcb.h>
+#define I386_TCB_REG_NUM 13
 
-#define PHYS_ADDR_BITS 32
-#define VIRT_ADDR_BITS 32
+struct i386_tcb_regs
+{
+  uint32_t r[I386_TCB_REG_NUM];
+};
 
-#define PAGE_BITS 12
+typedef struct i386_tcb_regs tcb_regs_t;
 
-#endif /* _ARCH_MACHINEDEFS_H */
+#endif /* _ARCH_I386_TCB_H */

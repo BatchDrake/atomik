@@ -18,9 +18,12 @@
 
 #include <atomik/atomik.h>
 #include <atomik/cap.h>
+#include <atomik/tcb.h>
 
 #include <stdio.h>
 #include <arch.h>
+
+tcb_t *current;
 
 void
 main (void)
@@ -34,6 +37,9 @@ main (void)
 
   capabilities_init (&root);
 
+  /* A LO LOCO */
+  *(int *) 0x80000000 = 6;
+  
   entry = (capslot_t *) ATOMIK_CAPSLOT_GET_OBJECT_ADDR (&root);
 
   for (i = 0; i < (1 << root.cnode.size_bits); ++i)
