@@ -35,18 +35,17 @@ main (void)
   
   machine_init ();
 
+  printf ("Capability size: %d\n", sizeof (capslot_t));
+
   capabilities_init (&root);
 
-  /* A LO LOCO */
-  *(int *) 0x80000000 = 6;
-  
-  entry = (capslot_t *) ATOMIK_CAPSLOT_GET_OBJECT_ADDR (&root);
+  entry = UT_BASE (&root);
 
   for (i = 0; i < (1 << root.cnode.size_bits); ++i)
     if (entry[i].object_type == ATOMIK_OBJTYPE_UNTYPED)
       printf ("Entry 0x%02x: %p (%d bits)\n",
               i,
-              ATOMIK_CAPSLOT_GET_OBJECT_ADDR (entry + i),
+              entry[i].ut.base,
               entry[i].ut.size_bits);
 
   entry = capslot_lookup (&root, 0xa0100000, 12, NULL);

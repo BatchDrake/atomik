@@ -27,20 +27,25 @@
 #define CPTR_BITS 32
 
 #if defined (__i386__)
-#  define ATOMIK_CAPSLOT_SIZE_BITS 4
-#  define ATOMIK_CAPSLOT_ADDR_BITS 28
-#elif defined (__x86_64__)
 #  define ATOMIK_CAPSLOT_SIZE_BITS 5
-#  define ATOMIK_CAPSLOT_ADDR_BITS 60
+#elif defined (__x86_64__)
+#  define ATOMIK_CAPSLOT_SIZE_BITS 6
 #else
 #  error Unsupported architecture
 #endif
 
 #define ATOMIK_CAPSLOT_SIZE (1 << ATOMIK_CAPSLOT_SIZE_BITS)
-#define ATOMIK_CAPSLOT_GET_OBJECT_ADDR(capslot) \
-  ((void *) ((capslot)->base << 4))
-#define ATOMIK_CAPSLOT_SET_OBJECT_ADDR(capslot, addr)   \
-  (capslot)->base = (uintptr_t) addr >> 4;
+#define ATOMIK_OBJPART_SIZE (1 << (ATOMIK_CAPSLOT_SIZE_BITS - 1))
+
+
+#define UT_BASE(utp) (utp)->ut.base
+#define UT_SIZE(utp) (1 << (utp)->ut.size_bits)
+
+
+#define CNODE_BASE(cnodep) (cnodep)->cnode.base
+#define CNODE_SIZE(cnodep) (1 << ((cnodep)->cnode.size_bits + ATOMIK_CAPSLOT_SIZE_BITS))
+#define CNODE_GUARD(cnodep) (cnodep)->cnode.guard
+#define CNODE_GUARD_BITS(cnodep) (cnodep)->cnode.guard_bits
 
 enum objtype
 {
@@ -51,41 +56,48 @@ enum objtype
 
 typedef enum objtype objtype_t;
 
-/* Capability slot type. Should be exactly 16 bytes long */
 struct capslot
 {
-  objtype_t object_type:4;  /* Up to 16 object types */
-  
-  uintptr_t base:ATOMIK_CAPSLOT_ADDR_BITS;
-
   union
   {
+    objtype_t object_type:8;
+
     /* Capability as untyped memory */
     struct
     {
-      uint8_t size_bits:6; /* Size in log(bytes) */
+      objtype_t object_type:8;
+      void *base;
+      unsigned int size_bits;
     }
     ut;
 
     /* Capability as CNode */
     struct
     {
-      uint8_t size_bits:5; /* Size in log(entries) */      
-      uint8_t guard_bits:4;
-      uint16_t guard;
+      objtype_t object_type:8;
+      uint8_t size_bits; /* Size in log(entries) */
+      uint8_t guard_bits;
+      uint32_t guard;
+      struct capslot *base;
     }
     cnode;
     
     /* Capability as page */
     struct
     {
-      uint8_t access:3;
+      objtype_t object_type:8;
+      void *base;
+      uint8_t access;
     }
     page;
+
+    uint8_t pad[ATOMIK_OBJPART_SIZE];
   };
-  
-  uintptr_t mdb_prev:ATOMIK_CAPSLOT_ADDR_BITS;
-  uintptr_t mdb_next:ATOMIK_CAPSLOT_ADDR_BITS;
+
+  struct capslot *mdb_parent;
+  struct capslot *mdb_child;
+  struct capslot *mdb_prev;
+  struct capslot *mdb_next;
 };
 
 typedef struct capslot capslot_t;

@@ -55,8 +55,7 @@ capabilities_init (capslot_t *root)
   root->cnode.size_bits  = ATOMIK_INIT_CAP_CNODE_SIZE;
   root->cnode.guard_bits = ATOMIK_INIT_CAP_GUARD_BITS;
   root->cnode.guard      = ATOMIK_INIT_CAP_GUARD;
-
-  ATOMIK_CAPSLOT_SET_OBJECT_ADDR (root, cap);
+  root->cnode.base       = cap;
 
   cnode_init (root);
   
@@ -72,7 +71,7 @@ capabilities_init (capslot_t *root)
     cap[n].object_type  = ATOMIK_OBJTYPE_UNTYPED;
     cap[n].ut.size_bits = i;
     
-    ATOMIK_CAPSLOT_SET_OBJECT_ADDR (&cap[n], curr_block);
+    cap[n].cnode.base = curr_block;
 
     ++n;
     curr_block += 1 << i;

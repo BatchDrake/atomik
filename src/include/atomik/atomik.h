@@ -23,4 +23,26 @@
 #include <machinedefs.h>
 #include <util.h>
 
+
+#define ATOMIK_FAIL(code) \
+{ \
+  exception = code; \
+  goto fail; \
+}
+
+enum error
+{
+  ATOMIK_SUCCESS,
+  ATOMIK_ERROR_INVALID_ARGUMENT,
+  ATOMIK_ERROR_INVALID_CAPABILITY,
+  ATOMIK_ERROR_ILLEGAL_OPERATION,
+  ATOMIK_ERROR_RANGE,
+  ATOMIK_ERROR_FAILED_LOOKUP,
+  ATOMIK_ERROR_DELETE_FIRST,
+  ATOMIK_ERROR_REVOKE_FIRST,
+  ATOMIK_ERROR_NOT_ENOUGH_MEMORY
+};
+
+typedef enum error error_t;
+
 #endif /* _ATOMIK_H */
