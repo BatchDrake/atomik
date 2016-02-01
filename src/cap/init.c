@@ -40,9 +40,6 @@ capabilities_init (capslot_t *root)
   __arch_get_free_memory (&free_start, &free_size);
   __arch_get_kernel_remap (&remap_start, &remap_size);
 
-  printf ("Free  memory: %p (%d bytes)\n", free_start,  free_size);
-  printf ("Remap memory: %p (%d bytes)\n", remap_start, remap_size);
-  
   cap        = (capslot_t *) remap_start;
   curr_block = (uintptr_t)   free_start + PAGE_SIZE;
 
@@ -71,7 +68,7 @@ capabilities_init (capslot_t *root)
     cap[n].object_type  = ATOMIK_OBJTYPE_UNTYPED;
     cap[n].ut.size_bits = i;
     
-    cap[n].cnode.base = curr_block;
+    cap[n].cnode.base = (capslot_t *) curr_block;
 
     ++n;
     curr_block += 1 << i;

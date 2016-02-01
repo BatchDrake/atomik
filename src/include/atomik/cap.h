@@ -37,13 +37,17 @@
 #define ATOMIK_CAPSLOT_SIZE (1 << ATOMIK_CAPSLOT_SIZE_BITS)
 #define ATOMIK_OBJPART_SIZE (1 << (ATOMIK_CAPSLOT_SIZE_BITS - 1))
 
+#define ATOMIK_ACCESS_EXEC  1
+#define ATOMIK_ACCESS_WRITE 2
+#define ATOMIK_ACCESS_READ  4
+#define ATOMIK_ACCESS_GRANT 8
 
 #define UT_BASE(utp) (utp)->ut.base
 #define UT_SIZE(utp) (1 << (utp)->ut.size_bits)
 
-
 #define CNODE_BASE(cnodep) (cnodep)->cnode.base
 #define CNODE_SIZE(cnodep) (1 << ((cnodep)->cnode.size_bits + ATOMIK_CAPSLOT_SIZE_BITS))
+#define CNODE_COUNT(cnodep) (1 << (cnodep)->cnode.size_bits)
 #define CNODE_GUARD(cnodep) (cnodep)->cnode.guard
 #define CNODE_GUARD_BITS(cnodep) (cnodep)->cnode.guard_bits
 
@@ -66,8 +70,10 @@ struct capslot
     struct
     {
       objtype_t object_type:8;
-      void *base;
-      unsigned int size_bits;
+      uint8_t   size_bits;
+      uint8_t   access;
+      uint8_t   unused;
+      void     *base;
     }
     ut;
 
@@ -76,9 +82,11 @@ struct capslot
     {
       objtype_t object_type:8;
       uint8_t size_bits; /* Size in log(entries) */
+      uint8_t access;
       uint8_t guard_bits;
-      uint32_t guard;
       struct capslot *base;
+      uint32_t guard;
+
     }
     cnode;
     
@@ -86,8 +94,11 @@ struct capslot
     struct
     {
       objtype_t object_type:8;
-      void *base;
-      uint8_t access;
+      uint8_t   size_bits;
+      uint8_t   access;
+      uint8_t   unused;
+      void     *base;
+      struct capslot *pt; /* Backpointer to page table */
     }
     page;
 
@@ -136,5 +147,13 @@ void cnode_init (capslot_t *);
 capslot_t *capslot_lookup (capslot_t *, cptr_t, unsigned char, struct caplookup_exception_info *);
 
 void capabilities_init (capslot_t *);
+
+int
+atomik_untyped_retype (
+    capslot_t *ut,
+    objtype_t type,
+    unsigned int size_bits,
+    capslot_t *destination,
+    unsigned int count);
 
 #endif /* _ATOMIK_CAP_H */

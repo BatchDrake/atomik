@@ -174,6 +174,8 @@ atomik_untyped_retype (
       case ATOMIK_OBJTYPE_UNTYPED:
         destination[i].ut.base = (void *) curr_address;
         destination[i].ut.size_bits = size_bits;
+        destination[i].ut.access = ut->ut.access;
+
         break;
 
       case ATOMIK_OBJTYPE_CNODE:
@@ -182,6 +184,8 @@ atomik_untyped_retype (
           ATOMIK_FAIL (ATOMIK_ERROR_RANGE);
 
         destination[i].cnode.base = (void *) curr_address;
+        destination[i].cnode.size_bits = size_bits - ATOMIK_CAPSLOT_SIZE_BITS;
+        destination[i].cnode.access = ut->ut.access;
 
         /* No guard */
         destination[i].cnode.guard_bits = 0;

@@ -1,6 +1,6 @@
 /*
- *    atomik.h: Macros and definitions required by all Atomik sources
- *    Copyright (C) 2015  Gonzalo J. Carracedo
+ *    test.h: In-kernel unit testing
+ *    Copyright (C) 2016  Gonzalo J. Carracedo
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -16,34 +16,39 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#ifndef _ATOMIK_H
-#define _ATOMIK_H
+#ifndef _TEST_TEST_H
+#define _TEST_TEST_H
 
-#include <alltypes.h>
-#include <machinedefs.h>
+#include <stdio.h>
+
 #include <util.h>
 
+#include <atomik/atomik.h>
+#include <atomik/cap.h>
 
-#define ATOMIK_FAIL(code) \
-{ \
-  exception = code; \
-  goto fail; \
+#define debug(env, fmt, arg...) \
+  printf ("(%s) " fmt, (env)->test->test_name, ##arg)
+
+#define ATOMIK_TEST_ASSERT(expr) \
+{\
+  if (!(expr)) \
+  { \
+    debug (env, "Test assertion failed: " STRINGIFY (expr) "\n"); \
+    ATOMIK_FAIL (ATOMIK_ERROR_TEST_FAILED); \
+  } \
 }
 
-enum error
+
+struct atomik_test_env
 {
-  ATOMIK_SUCCESS,
-  ATOMIK_ERROR_INVALID_ARGUMENT,
-  ATOMIK_ERROR_INVALID_CAPABILITY,
-  ATOMIK_ERROR_ILLEGAL_OPERATION,
-  ATOMIK_ERROR_RANGE,
-  ATOMIK_ERROR_FAILED_LOOKUP,
-  ATOMIK_ERROR_DELETE_FIRST,
-  ATOMIK_ERROR_REVOKE_FIRST,
-  ATOMIK_ERROR_NOT_ENOUGH_MEMORY,
-  ATOMIK_ERROR_TEST_FAILED
+  struct atomik_test *test;
+  capslot_t *root;
 };
 
-typedef enum error error_t;
+struct atomik_test
+{
+  const char *test_name;
+  error_t (*test_func) (struct atomik_test_env *);
+};
 
-#endif /* _ATOMIK_H */
+#endif /* _TEST_TEST_H */

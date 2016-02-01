@@ -1,6 +1,6 @@
 /*
- *    atomik.h: Macros and definitions required by all Atomik sources
- *    Copyright (C) 2015  Gonzalo J. Carracedo
+ *    test.h: Public unit test API
+ *    Copyright (C) 2016  Gonzalo J. Carracedo
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -16,34 +16,9 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#ifndef _ATOMIK_H
-#define _ATOMIK_H
+#ifndef _ATOMIK_TEST_H
+#define _ATOMIK_TEST_H
 
-#include <alltypes.h>
-#include <machinedefs.h>
-#include <util.h>
+int run_tests (capslot_t *);
 
-
-#define ATOMIK_FAIL(code) \
-{ \
-  exception = code; \
-  goto fail; \
-}
-
-enum error
-{
-  ATOMIK_SUCCESS,
-  ATOMIK_ERROR_INVALID_ARGUMENT,
-  ATOMIK_ERROR_INVALID_CAPABILITY,
-  ATOMIK_ERROR_ILLEGAL_OPERATION,
-  ATOMIK_ERROR_RANGE,
-  ATOMIK_ERROR_FAILED_LOOKUP,
-  ATOMIK_ERROR_DELETE_FIRST,
-  ATOMIK_ERROR_REVOKE_FIRST,
-  ATOMIK_ERROR_NOT_ENOUGH_MEMORY,
-  ATOMIK_ERROR_TEST_FAILED
-};
-
-typedef enum error error_t;
-
-#endif /* _ATOMIK_H */
+#endif /* _ATOMIK_TEST_H */
