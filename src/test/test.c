@@ -156,11 +156,9 @@ test_ut_retype (struct atomik_test_env *env)
   }
 
 fail:
-  if (destination != NULL && off != -1)
-    for (i = 0; i < 4; ++i)
-    {
-      /* Delete */
-    }
+  /* Delete all derived capabilities */
+  if (ut != NULL)
+    atomik_capslot_revoke (ut);
 
   return exception;
 }

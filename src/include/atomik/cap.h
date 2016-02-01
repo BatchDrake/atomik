@@ -156,4 +156,7 @@ atomik_untyped_retype (
     capslot_t *destination,
     unsigned int count);
 
+int atomik_capslot_delete (capslot_t *);
+int atomik_capslot_revoke (capslot_t *);
+
 #endif /* _ATOMIK_CAP_H */

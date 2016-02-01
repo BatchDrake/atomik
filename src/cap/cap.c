@@ -228,3 +228,59 @@ fail:
 
   return -exception;
 }
+
+int
+atomik_capslot_delete (capslot_t *slot)
+{
+  capslot_t *parent;
+  error_t exception = ATOMIK_SUCCESS;
+  /* Cannot delete if capability has children */
+
+  if (slot->mdb_child != NULL)
+    ATOMIK_FAIL (ATOMIK_ERROR_REVOKE_FIRST);
+
+  if ((parent = slot->mdb_parent) == NULL)
+    ATOMIK_FAIL (ATOMIK_ERROR_ILLEGAL_OPERATION);
+
+  if (slot->mdb_prev == NULL)
+    parent->mdb_child = slot->mdb_next;
+  else
+    slot->mdb_prev->mdb_next = slot->mdb_next;
+
+  if (slot->mdb_next != NULL)
+    slot->mdb_next->mdb_prev = slot->mdb_prev;
+
+  /* TODO: FOR SECURITY: PERFORM MEMORY CLEANUP OF
+   * BIG OBJECTS. */
+
+  /* TODO: Why not perform cleanup in user level? */
+
+  capslot_clear (slot);
+
+fail:
+  return -exception;
+}
+
+int
+atomik_capslot_revoke (capslot_t *slot)
+{
+  capslot_t *this, *next;
+  int error;
+
+  this = slot->mdb_child;
+
+  while (this != NULL)
+  {
+    next = this->mdb_next;
+
+    if ((error = atomik_capslot_revoke (this)) != ATOMIK_SUCCESS)
+      return error;
+
+    if ((error = atomik_capslot_delete (this)) != ATOMIK_SUCCESS)
+      return error;
+
+    this = next;
+  }
+
+  return ATOMIK_SUCCESS;
+}
