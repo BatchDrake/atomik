@@ -24,11 +24,11 @@
 
 #include <cap_init.h>
 
-void  *free_start;
-size_t free_size;
+void  *atomik_free_start;
+size_t atomik_free_size;
 
-void  *remap_start;
-size_t remap_size;
+void  *atomik_remap_start;
+size_t atomik_remap_size;
 
 void
 capabilities_init (capslot_t *root)
@@ -37,11 +37,15 @@ capabilities_init (capslot_t *root)
   uintptr_t curr_block;
   unsigned int i, n;
   
-  __arch_get_free_memory (&free_start, &free_size);
-  __arch_get_kernel_remap (&remap_start, &remap_size);
+  size_t free_size;
 
-  cap        = (capslot_t *) remap_start;
-  curr_block = (uintptr_t)   free_start + PAGE_SIZE;
+  __arch_get_free_memory (&atomik_free_start, &atomik_free_size);
+  __arch_get_kernel_remap (&atomik_remap_start, &atomik_remap_size);
+
+  free_size = atomik_free_size;
+
+  cap        = (capslot_t *) atomik_remap_start;
+  curr_block = (uintptr_t)   atomik_free_start + PAGE_SIZE;
 
   /* In the worst case scenario (64 bits, fully unaligned memory)
      we would require up to 2 * (64 - 12) = 104 untyped memory
