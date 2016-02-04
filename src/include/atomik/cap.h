@@ -34,6 +34,7 @@
 #  error Unsupported architecture
 #endif
 
+#define ATOMIK_MIN_UT_SIZE_BITS    ATOMIK_CAPSLOT_SIZE_BITS
 #define ATOMIK_CAPSLOT_SIZE (1 << ATOMIK_CAPSLOT_SIZE_BITS)
 #define ATOMIK_OBJPART_SIZE (1 << (ATOMIK_CAPSLOT_SIZE_BITS - 1))
 
@@ -55,7 +56,10 @@ enum objtype
 {
   ATOMIK_OBJTYPE_NULL,
   ATOMIK_OBJTYPE_UNTYPED,
-  ATOMIK_OBJTYPE_CNODE
+  ATOMIK_OBJTYPE_CNODE,
+  ATOMIK_OBJTYPE_PAGE,
+  ATOMIK_OBJTYPE_PT,
+  ATOMIK_OBJTYPE_PD
 };
 
 typedef enum objtype objtype_t;
@@ -94,13 +98,38 @@ struct capslot
     struct
     {
       objtype_t object_type:8;
-      uint8_t   size_bits;
+      uint8_t   unused_1;
       uint8_t   access;
-      uint8_t   unused;
+      uint8_t   unused_2;
       void     *base;
       struct capslot *pt; /* Backpointer to page table */
+      uint16_t  entry; /* Entry in page table */
     }
     page;
+
+    /* Capability as page table */
+    struct
+    {
+      objtype_t object_type:8;
+      uint8_t   unused_1;
+      uint8_t   access;
+      uint8_t   unused_2;
+      uintptr_t *base;
+      struct capslot *pd; /* Backpointer to page table */
+      uint16_t  entry; /* Entry in page directory */
+    }
+    pt;
+
+    /* Capability as page directory */
+    struct
+    {
+      objtype_t object_type:8;
+      uint8_t   unused_1;
+      uint8_t   access;
+      uint8_t   unused_2;
+      uintptr_t *base;
+    }
+    pd;
 
     uint8_t pad[ATOMIK_OBJPART_SIZE];
   };
@@ -142,7 +171,7 @@ struct caplookup_exception_info
   uint8_t guard_bits;
 };
 
-void cnode_init (capslot_t *);
+void capslot_clear (capslot_t *);
 
 capslot_t *capslot_lookup (capslot_t *, cptr_t, unsigned char, struct caplookup_exception_info *);
 

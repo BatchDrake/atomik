@@ -18,23 +18,23 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <atomik/cap.h>
 #include <arch.h>
 
 #include <cap_init.h>
 
+void  *free_start;
+size_t free_size;
+
+void  *remap_start;
+size_t remap_size;
+
 void
 capabilities_init (capslot_t *root)
 {
   capslot_t *cap;
-  void  *free_start;
-  size_t free_size;
-
-  void  *remap_start;
-  size_t remap_size;
-
   uintptr_t curr_block;
-  
   unsigned int i, n;
   
   __arch_get_free_memory (&free_start, &free_size);
@@ -54,7 +54,7 @@ capabilities_init (capslot_t *root)
   root->cnode.guard      = ATOMIK_INIT_CAP_GUARD;
   root->cnode.base       = cap;
 
-  cnode_init (root);
+  memset (root->cnode.base, 0, CNODE_SIZE (root));
   
   n = 0;
 
