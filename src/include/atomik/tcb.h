@@ -23,13 +23,33 @@
 #include <machinedefs.h>
 #include <atomik/cap.h>
 
+enum thread_state
+{
+  ATOMIK_THREAD_STATE_INACTIVE,
+  ATOMIK_THREAD_STATE_RUNNING,
+  ATOMIK_THREAD_STATE_BLOCKED_ON_SEND,
+  ATOMIK_THREAD_STATE_BLOCKED_ON_CALL,
+  ATOMIK_THREAD_STATE_BLOCKED_ON_RECV,
+  ATOMIK_THREAD_STATE_IDLE_THREAD /* Idle thread state */
+};
+
+typedef enum thread_state thread_state_t;
+
 struct tcb
 {
   /* Context registers must be at offset 0 */
   tcb_regs_t regs;
+
+  thread_state_t state;
   
   capslot_t cspace;
   cptr_t    vspace;
+
+  struct tcb *wq_next;
+  struct tcb *wq_prev;
+
+  struct tcb *sched_next;
+  struct tcb *sched_prev;
 };
 
 typedef struct tcb tcb_t;

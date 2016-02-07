@@ -59,10 +59,21 @@ enum objtype
   ATOMIK_OBJTYPE_CNODE,
   ATOMIK_OBJTYPE_PAGE,
   ATOMIK_OBJTYPE_PT,
-  ATOMIK_OBJTYPE_PD
+  ATOMIK_OBJTYPE_PD,
+  ATOMIK_OBJTYPE_ENDPOINT,
+  ATOMIK_OBJTYPE_NOTIFICATION
 };
 
 typedef enum objtype objtype_t;
+
+enum epstate
+{
+  ATOMIK_EPSTATE_IDLE,
+  ATOMIK_EPSTATE_SEND,
+  ATOMIK_EPSTATE_RECV
+};
+
+typedef enum epstate epstate_t;
 
 struct capslot
 {
@@ -130,6 +141,19 @@ struct capslot
       uintptr_t *base;
     }
     pd;
+
+    /* Capability as endpoint */
+    struct
+    {
+      objtype_t object_type:8;
+      epstate_t state:8;
+      uint8_t   access;
+      uint8_t   unused;
+      uint32_t  badge;
+      struct tcb *wq_head;
+      struct tcb *wq_tail;
+    }
+    ep;
 
     uint8_t pad[ATOMIK_OBJPART_SIZE];
   };
