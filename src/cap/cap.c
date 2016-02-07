@@ -44,7 +44,7 @@ capslot_clear (capslot_t *cap)
 }
 
 capslot_t *
-capslot_lookup (capslot_t *root, cptr_t addr, unsigned char depth, struct caplookup_exception_info *info)
+capslot_cspace_resolve (capslot_t *root, cptr_t addr, unsigned char depth, struct caplookup_exception_info *info)
 {
   capslot_t *leaf;
   unsigned int bits_resolved;

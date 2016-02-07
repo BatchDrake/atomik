@@ -33,6 +33,18 @@ void __arch_get_free_memory (void **, size_t *);
 /* Get kernel object remap area */
 void __arch_get_kernel_remap (void **, size_t *);
 
+/* Map page to page table */
+void __arch_map_page (void *, void *, uintptr_t, uint8_t);
+
+/* Map page table to page directory */
+void __arch_map_pagetable (void *, void *, uintptr_t, uint8_t);
+
+/* Resolve existing map */
+uintptr_t __arch_resolve_page (void *, uintptr_t, uint8_t, error_t *);
+
+/* Get remapped page table address */
+uintptr_t *__arch_resolve_pagetable (void *, uintptr_t, uint8_t, error_t *);
+
 /* Initialize hardware (generic way) */
 void machine_init (void);
 

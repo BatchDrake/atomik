@@ -17,23 +17,14 @@
  */
 
 #include <stdio.h>
-#include <arch.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <atomik/atomik.h>
 #include <atomik/cap.h>
+#include <atomik/vspace.h>
 
-
-/* These pointers are required in order to remap lowmem
- * addresses into kernel addresses.
- */
-
-extern void  *atomik_free_start;
-extern size_t atomik_free_size;
-
-extern void  *atomik_remap_start;
-extern size_t atomik_remap_size;
+#include <arch.h>
 
 static inline error_t
 __atomik_objtype_adjust_size_bits (objtype_t type, unsigned int *size_bits)
@@ -64,12 +55,6 @@ __atomik_objtype_adjust_size_bits (objtype_t type, unsigned int *size_bits)
 fail:
 
   return -exception;
-}
-
-static inline void *
-__atomik_phys_to_remap (uintptr_t addr)
-{
-  return (void *) (addr - (uintptr_t) atomik_free_start + (uintptr_t) atomik_remap_start);
 }
 
 /* According to the manual, the retype operation accepts:
@@ -127,8 +112,7 @@ atomik_untyped_retype (
    * high memory is only usable by userland processes as
    * page frames.
    */
-  if (((uintptr_t) ut->ut.base - (uintptr_t) atomik_free_start) +
-      ut_size > atomik_remap_size)
+  if (!__atomik_phys_is_remappable (ut->ut.base, ut_size))
     ATOMIK_FAIL (ATOMIK_ERROR_PAGES_ONLY);
 
   /* Check whether we can create all these objects */
@@ -180,7 +164,9 @@ atomik_untyped_retype (
         destination[i].page.base = (void *) curr_address;
         destination[i].page.access = ut->ut.access;
         destination[i].page.pt = NULL; /* Unlinked page */
-        destination[i].page.entry = 0; /* No entry defined */
+        destination[i].page.vaddr_hi  = 0;
+        destination[i].page.vaddr_lo1 = 0;
+        destination[i].page.vaddr_lo2 = 0;
 
         /* Clear page contents */
         memset (destination[i].page.base, 0, obj_size);
@@ -188,12 +174,14 @@ atomik_untyped_retype (
         break;
 
       case ATOMIK_OBJTYPE_PT:
-        /* Page base is physmem. Its base address may not be available
-         * in kernel mode. */
-        destination[i].pt.base = (void *) curr_address;
+        /* Page tables and directories must be accessible from kernel mode */
+        destination[i].pt.base = __atomik_phys_to_remap (curr_address);
         destination[i].pt.access = ut->ut.access;
         destination[i].pt.pd = NULL; /* Unlinked page */
-        destination[i].pt.entry = 0; /* No entry defined */
+        destination[i].pt.vaddr_hi  = 0;
+        destination[i].pt.vaddr_lo1 = 0;
+        destination[i].pt.vaddr_lo2 = 0;
+
 
         /* Clear page table */
         memset (destination[i].page.base, 0, obj_size);
@@ -201,9 +189,8 @@ atomik_untyped_retype (
         break;
 
       case ATOMIK_OBJTYPE_PD:
-        /* Page base is physmem. Its base address may not be available
-         * in kernel mode. */
-        destination[i].pd.base = (void *) curr_address;
+        /* Page tables and directories must be accessible from kernel mode */
+        destination[i].pd.base = __atomik_phys_to_remap (curr_address);
         destination[i].pd.access = ut->ut.access;
 
         /* Clear page directory */

@@ -2,13 +2,13 @@
 
 # Needed to ensure that multiboot header is properly copied
 
-SUBDIRS = arch/i386 cap test
+SUBDIRS = arch/i386 cap vspace test
 
 OBJCOPYFLAGS=-R .note -R .note.gnu.build-id -R .comment
 
 bin_PROGRAMS = atomik
 
-atomik_LDADD=../musl/libmusl.a arch/@AM_ARCH@/lib@AM_ARCH@.a test/libtest.a cap/libcap.a -lgcc # GCC, I hate you soooo much. No joke.
+atomik_LDADD=../musl/libmusl.a arch/@AM_ARCH@/lib@AM_ARCH@.a test/libtest.a vspace/libvspace.a cap/libcap.a -lgcc # GCC, I hate you soooo much. No joke.
 atomik_LDFLAGS=-Wl,-Tarch/@AM_ARCH@/kernel.lds @AM_LDFLAGS@
 atomik_CFLAGS = -I../musl/include -Iinclude -Iarch/@AM_ARCH@/include -ggdb -nostdinc -nostdlib -fno-builtin -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith @AM_CFLAGS@
 atomik_CCASFLAGS = @AM_CFLAGS@

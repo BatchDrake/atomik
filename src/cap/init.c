@@ -19,7 +19,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <atomik/atomik.h>
 #include <atomik/cap.h>
+
 #include <arch.h>
 
 #include <cap_init.h>

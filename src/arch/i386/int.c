@@ -16,12 +16,16 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
+#include <stdio.h>
 #include <string.h>
+
+#include <atomik/atomik.h>
+
+#include <arch.h>
+
 #include <i386-seg.h>
 #include <i386-int.h>
 
-#include <arch.h>
-#include <stdio.h>
 
 /* Note: IDT is paged, no BOOT_SYMBOL declaration needed */
 struct idt_entry idt_entries[256];

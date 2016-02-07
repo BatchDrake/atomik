@@ -16,6 +16,8 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
+#include <atomik/atomik.h>
+
 #include <i386-layout.h>
 #include <i386-seg.h>
 

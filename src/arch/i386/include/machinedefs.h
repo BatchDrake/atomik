@@ -26,6 +26,8 @@
 #define PHYS_ADDR_BITS 32
 #define VIRT_ADDR_BITS 32
 
-#define PAGE_BITS 12
+#define PAGE_BITS      12
+#define PTE_BITS       10
+#define PDE_BITS       10
 
 #endif /* _ARCH_MACHINEDEFS_H */

@@ -41,7 +41,7 @@ main (void)
   if (run_tests (&root) != ATOMIK_SUCCESS)
     __arch_machine_halt ();
 
-  entry = capslot_lookup (&root, 0xa0100000, 12, NULL);
+  entry = capslot_cspace_resolve (&root, 0xa0100000, 12, NULL);
 
   printf ("Slot resolved: %p\n", entry);
   

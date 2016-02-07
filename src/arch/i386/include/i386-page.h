@@ -27,7 +27,7 @@
 #define PAGE_FLAG_ACCESSED      32
 #define PAGE_FLAG_DIRTY         64
 #define PAGE_FLAG_4MIB_PAGES    128
-#define PAGE_FLAG_GLOBAL        256
+#define PAGE_FLAG_GLOBAL        256 /* Enable this in cr4 */
 
 #define PAGE_TABLE_DFL_FLAGS    (PAGE_FLAG_PRESENT | PAGE_FLAG_WRITABLE)
 

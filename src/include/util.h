@@ -41,15 +41,24 @@
 # define __UNITS(x, wrdsiz) ((((x) + (wrdsiz - 1)) / wrdsiz))
 # define __ALIGN(x, wrdsiz) (__UNITS(x, wrdsiz) * wrdsiz)
 
+/* Consistency checks. If this breaks, the page table/directory
+ * layout is not properly defined in arch/XXX/machinedefs.h */
+CPPASSERT (PAGE_BITS + PTE_BITS + PDE_BITS == VIRT_ADDR_BITS);
+
 /* Page-related macros */
 #define PAGE_SIZE            (1 << PAGE_BITS)
 #define PAGE_MASK            (~(PAGE_SIZE - 1))
-#define PAGE_ENTRIES         (PAGE_SIZE / sizeof (uintptr_t))
+#define PAGE_CONTROL_MASK    (~PAGE_MASK)
+#define PTE_COUNT            (1 << PTE_BITS)
+#define PDE_COUNT            (1 << PDE_BITS)
+#define PTE_MASK             (PTE_COUNT - 1) /* After shift */
+#define PDE_MASK             (PDE_COUNT - 1) /* After shift */
 #define PAGE_START(x)        ((x) & PAGE_MASK)
-#define CONTROL_BITS         (~PAGE_MASK)
 
-#define PAGE_TABLE(addr)     (( (uintptr_t) addr) >> (VIRT_ADDR_BITS - PAGE_BITS)))
-#define PAGE_ENTRY(addr)     ((((uintptr_t) addr) >> PAGE_BITS) & (PAGE_ENTRIES - 1))
+#define VADDR_GET_PDE_INDEX(addr)  \
+  ((((uintptr_t) addr) >> (PAGE_BITS + PTE_BITS)) & PDE_MASK)
+#define VADDR_GET_PTE_INDEX(addr)  \
+  ((((uintptr_t) addr) >> PAGE_BITS) & PTE_MASK)
 
 #define ATOMIK_ASSERT(expr)                                             \
   if (!(expr))                                                          \

@@ -82,5 +82,7 @@ AC_OUTPUT([
   src/Makefile
   src/cap/Makefile
   src/test/Makefile
+  src/vspace/Makefile
   src/arch/i386/Makefile
 ])
+

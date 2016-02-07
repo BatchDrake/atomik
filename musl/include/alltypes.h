@@ -74,7 +74,27 @@ typedef struct __sigset_t { unsigned long __bits[128/sizeof(long)]; } sigset_t;
 
 struct iovec { void *iov_base; size_t iov_len; };
 
-typedef unsigned socklen_t;
-typedef unsigned short sa_family_t;
+enum error
+{
+  ATOMIK_SUCCESS,
+  ATOMIK_ERROR_INVALID_ARGUMENT,
+  ATOMIK_ERROR_INVALID_SIZE,
+  ATOMIK_ERROR_INVALID_TYPE,
+  ATOMIK_ERROR_INVALID_CAPABILITY,
+  ATOMIK_ERROR_ILLEGAL_OPERATION,
+  ATOMIK_ERROR_ACCESS_DENIED,
+  ATOMIK_ERROR_INVALID_ADDRESS,
+  ATOMIK_ERROR_RANGE,
+  ATOMIK_ERROR_FAILED_LOOKUP,
+  ATOMIK_ERROR_DELETE_FIRST,
+  ATOMIK_ERROR_REVOKE_FIRST,
+  ATOMIK_ERROR_MAP_FIRST,
+  ATOMIK_ERROR_UNMAP_FIRST,
+  ATOMIK_ERROR_NOT_ENOUGH_MEMORY,
+  ATOMIK_ERROR_PAGES_ONLY,
+  ATOMIK_ERROR_TEST_FAILED
+};
+
+typedef enum error error_t;
 
 #endif

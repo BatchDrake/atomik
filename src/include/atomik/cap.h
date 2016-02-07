@@ -105,16 +105,17 @@ struct capslot
     }
     cnode;
     
+#ifdef __i386__
     /* Capability as page */
     struct
     {
       objtype_t object_type:8;
-      uint8_t   unused_1;
+      uint8_t   vaddr_lo1; /* Hello 80286 */
       uint8_t   access;
-      uint8_t   unused_2;
+      uint8_t   vaddr_lo2;
       void     *base;
       struct capslot *pt; /* Backpointer to page table */
-      uint16_t  entry; /* Entry in page table */
+      uint16_t  vaddr_hi;
     }
     page;
 
@@ -122,12 +123,12 @@ struct capslot
     struct
     {
       objtype_t object_type:8;
-      uint8_t   unused_1;
+      uint8_t   vaddr_lo1;
       uint8_t   access;
-      uint8_t   unused_2;
-      uintptr_t *base;
+      uint8_t   vaddr_lo2;
+      uintptr_t *base;    /* Must be remapped */
       struct capslot *pd; /* Backpointer to page table */
-      uint16_t  entry; /* Entry in page directory */
+      uint16_t  vaddr_hi; /* Entry in page directory */
     }
     pt;
 
@@ -141,7 +142,9 @@ struct capslot
       uintptr_t *base;
     }
     pd;
-
+#else
+# error "Page capabilities not defined for 64 bits"
+#endif
     /* Capability as endpoint */
     struct
     {
@@ -195,12 +198,9 @@ struct caplookup_exception_info
   uint8_t guard_bits;
 };
 
-void capslot_clear (capslot_t *);
-
-capslot_t *capslot_lookup (capslot_t *, cptr_t, unsigned char, struct caplookup_exception_info *);
-
-void capabilities_init (capslot_t *);
-
+/*
+ * System calls
+ */
 int
 atomik_untyped_retype (
     capslot_t *ut,
@@ -210,6 +210,16 @@ atomik_untyped_retype (
     unsigned int count);
 
 int atomik_capslot_delete (capslot_t *);
+
 int atomik_capslot_revoke (capslot_t *);
+
+/*
+ * Convenience functions
+ */
+capslot_t *capslot_cspace_resolve (capslot_t *, cptr_t, unsigned char, struct caplookup_exception_info *);
+
+void capslot_clear (capslot_t *);
+
+void capabilities_init (capslot_t *);
 
 #endif /* _ATOMIK_CAP_H */
