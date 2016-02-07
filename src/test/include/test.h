@@ -27,7 +27,7 @@
 #include <atomik/cap.h>
 
 #define debug(env, fmt, arg...) \
-  printf ("(%s) " fmt, (env)->test->test_name, ##arg)
+  printf ("[%d] %s: " fmt, (env)->total, (env)->test->test_name, ##arg)
 
 #define ATOMIK_TEST_ASSERT(expr) \
 {\
@@ -43,6 +43,8 @@ struct atomik_test_env
 {
   struct atomik_test *test;
   capslot_t *root;
+  unsigned int total;
+  unsigned int ok;
 };
 
 struct atomik_test

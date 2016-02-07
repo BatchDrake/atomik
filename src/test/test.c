@@ -41,7 +41,7 @@ test_ut_coverage (struct atomik_test_env *env)
   __arch_get_free_memory (&free_start, &free_size);
   __arch_get_kernel_remap (&remap_start, &remap_size);
 
-  debug (env, "Counting UT capabilities (should be %d bytes...)\n", free_size);
+  debug (env, "counting UT capabilities (should be %d bytes...)\n", free_size);
 
   count = CNODE_COUNT (env->root);
 
@@ -97,7 +97,7 @@ test_ut_retype (struct atomik_test_env *env)
 
   error_t exception = ATOMIK_SUCCESS;
 
-  debug (env, "Testing UT retyping\n");
+  debug (env, "testing UT retyping\n");
 
   count = CNODE_COUNT (env->root);
 
@@ -122,7 +122,7 @@ test_ut_retype (struct atomik_test_env *env)
                                           destination,
                                           4)) != ATOMIK_SUCCESS)
   {
-    debug (env, "Call to retype failed: error %d\n", exception);
+    debug (env, "call to retype failed: error %d\n", exception);
 
     ATOMIK_FAIL (ATOMIK_ERROR_TEST_FAILED);
   }
@@ -163,36 +163,78 @@ fail:
   return exception;
 }
 
+static error_t
+test_vspace (struct atomik_test_env *env)
+{
+  /* TODO: Check whether kernel is correctly mapped */
+
+  return ATOMIK_SUCCESS;
+}
+
+static error_t
+test_vspace_paging (struct atomik_test_env *env)
+{
+  /* TODO: Check whether paging works (i.e. translate) */
+
+  return ATOMIK_SUCCESS;
+}
+
+static error_t
+test_vspace_switch (struct atomik_test_env *env)
+{
+  /* TODO: Check whether we can switch to a given vspace */
+
+  return ATOMIK_SUCCESS;
+}
+
+static error_t
+test_cdt_ops (struct atomik_test_env *env)
+{
+  /* TODO: Check whether CDT operations work (delete, mint, revoke) */
+
+  return ATOMIK_SUCCESS;
+}
+
 struct atomik_test test_list[] =
     {
-        {"ut_coverage", test_ut_coverage},
-        {"ut_retype",   test_ut_retype},
+        {"ut_coverage",   test_ut_coverage},
+        {"ut_retype",     test_ut_retype},
+        {"vspace",        test_vspace},
+        {"vspace_paging", test_vspace_paging},
+        {"vspace_switch", test_vspace_switch},
+        {"cdt_ops",       test_cdt_ops},
         {NULL, NULL}
     };
 
 int
 run_tests (capslot_t *root)
 {
-  int i = 0;
   struct atomik_test_env env;
 
-  env.root = root;
+  env.root  = root;
+  env.total = 0;
+  env.ok    = 0;
 
-  while (test_list[i].test_func != NULL)
+  while (test_list[env.total].test_func != NULL)
   {
-    env.test = &test_list[i];
+    env.test = &test_list[env.total++];
 
-    debug (&env, "Test starting...\n");
-    if (test_list[i].test_func (&env) != ATOMIK_SUCCESS)
+    debug (&env, "test starting...\n");
+    if (env.test->test_func (&env) != ATOMIK_SUCCESS)
+      debug (&env, "\033[1;31merror\033[0m: test failed\n");
+    else
     {
-      debug (&env, "ERROR: Test failed\n");
-      return -ATOMIK_ERROR_TEST_FAILED;
+      debug (&env, "\033[1;32mok\033[0m!\n");
+      ++env.ok;
     }
-
-    debug (&env, "OK!\n");
-
-    ++i;
   }
+
+  printf ("ATOMIK TEST RESULTS: \n");
+  printf ("  Number of tests run: %d\n", env.total);
+  printf ("  Number of failures:  %d\n", env.total - env.ok);
+
+  if (env.total != env.ok)
+    return ATOMIK_ERROR_TEST_FAILED;
 
   return ATOMIK_SUCCESS;
 }
