@@ -27,12 +27,21 @@
 #include <i386-irq.h>
 #include <i386-seg.h>
 #include <i386-page.h>
+#include <i386-layout.h>
 
 extern void  *free_start;
 extern size_t free_size;
 
 extern void  *remap_start;
 extern size_t remap_size;
+
+/* This is initialized in boot.c. Points to a page directory */
+extern struct page_table *page_dir;
+
+/* Symbols provided by linker */
+extern int kernel_start; /* Physical address */
+extern int kernel_end;   /* Physical address */
+extern int text_start;   /* Virtual address */
 
 void
 __arch_machine_halt (void)
@@ -68,18 +77,21 @@ __arch_map_page (void *pt, void *frame, uintptr_t vaddr, uint8_t attr)
   uintptr_t x86_phys = (uintptr_t) frame;
   uint8_t   x86_attr = 0;
 
-  if ((attr & ATOMIK_PAGEATTR_READABLE) && (attr & ATOMIK_PAGEATTR_WRITABLE))
-    x86_attr |= PAGE_FLAG_WRITABLE;
+  if (vaddr < KERNEL_BASE)
+  {
+    if ((attr & ATOMIK_PAGEATTR_READABLE) && (attr & ATOMIK_PAGEATTR_WRITABLE))
+      x86_attr |= PAGE_FLAG_WRITABLE;
 
-  if (attr & ATOMIK_PAGEATTR_PRESENT)
-    x86_attr |= PAGE_FLAG_PRESENT;
+    if (attr & ATOMIK_PAGEATTR_PRESENT)
+      x86_attr |= PAGE_FLAG_PRESENT;
 
-  if (attr & ATOMIK_PAGEATTR_KERNEL)
-    x86_attr |= PAGE_FLAG_GLOBAL;
-  else
-    x86_attr |= PAGE_FLAG_USERLAND;
+    if (attr & ATOMIK_PAGEATTR_KERNEL)
+      x86_attr |= PAGE_FLAG_GLOBAL;
+    else
+      x86_attr |= PAGE_FLAG_USERLAND;
 
-  x86_pt[VADDR_GET_PTE_INDEX (vaddr)] = (x86_phys & PAGE_MASK) | x86_attr;
+    x86_pt[VADDR_GET_PTE_INDEX (vaddr)] = (x86_phys & PAGE_MASK) | x86_attr;
+  }
 }
 
 void
@@ -89,18 +101,21 @@ __arch_map_pagetable (void *pd, void *pt, uintptr_t vaddr, uint8_t attr)
   uintptr_t x86_pt   = __atomik_remap_to_phys (pt);
   uint8_t   x86_attr = 0;
 
-  if ((attr & ATOMIK_PAGEATTR_READABLE) && (attr & ATOMIK_PAGEATTR_WRITABLE))
-    x86_attr |= PAGE_FLAG_WRITABLE;
+  if (vaddr < KERNEL_BASE)
+  {
+    if ((attr & ATOMIK_PAGEATTR_READABLE) && (attr & ATOMIK_PAGEATTR_WRITABLE))
+      x86_attr |= PAGE_FLAG_WRITABLE;
 
-  if (attr & ATOMIK_PAGEATTR_PRESENT)
-    x86_attr |= PAGE_FLAG_PRESENT;
+    if (attr & ATOMIK_PAGEATTR_PRESENT)
+      x86_attr |= PAGE_FLAG_PRESENT;
 
-  if (attr & ATOMIK_PAGEATTR_KERNEL)
-    x86_attr |= PAGE_FLAG_GLOBAL;
-  else
-    x86_attr |= PAGE_FLAG_USERLAND;
+    if (attr & ATOMIK_PAGEATTR_KERNEL)
+      x86_attr |= PAGE_FLAG_GLOBAL;
+    else
+      x86_attr |= PAGE_FLAG_USERLAND;
 
-  x86_pd[VADDR_GET_PDE_INDEX (vaddr)] = (x86_pt & PAGE_MASK) | x86_attr;
+    x86_pd[VADDR_GET_PDE_INDEX (vaddr)] = (x86_pt & PAGE_MASK) | x86_attr;
+  }
 }
 
 /* This returns a remapped address */
@@ -158,8 +173,47 @@ __arch_resolve_page (void *pd, uintptr_t vaddr, uint8_t access, error_t *err)
 fail:
   *err = exception;
 
-  return (uintptr_t) -1;
+  return ATOMIK_INVALID_ADDR;
 }
+
+/* Returns size in bytes */
+size_t
+__arch_get_kernel_layout (void **virt_start, uintptr_t *phys_start)
+{
+  *virt_start = &text_start;
+  *phys_start = (uintptr_t) &kernel_start;
+
+  return (uintptr_t) &kernel_end - (uintptr_t) &kernel_start;
+}
+
+/* Necessary to access kernel code from userland. Accepts remapped address */
+void
+__arch_map_kernel (void *pd)
+{
+  uint32_t *x86_pd      = (uint32_t *) pd;
+  uint32_t *x86_boot_pd =
+      (uint32_t *) __atomik_phys_to_remap ((uintptr_t) page_dir);
+  size_t    size        =
+      __UNITS ((uintptr_t) &kernel_end - (uintptr_t) &kernel_start,
+               PTRANGE_SIZE);
+  unsigned int i;
+  unsigned int pde_index;
+
+  for (i = 0; i < size; ++i)
+  {
+    pde_index = VADDR_GET_PDE_INDEX (
+        KERNEL_BASE +
+        (i << (PAGE_BITS + PTE_BITS)));
+
+    x86_pd[pde_index] =
+        (x86_boot_pd[pde_index] & PAGE_MASK) |
+        PAGE_FLAG_PRESENT |
+        PAGE_FLAG_WRITABLE |
+        PAGE_FLAG_GLOBAL;
+  }
+
+}
+
 void
 machine_init (void)
 {

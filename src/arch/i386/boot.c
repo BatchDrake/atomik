@@ -38,9 +38,9 @@ void  *remap_start;
 size_t remap_size;
 
 /* Symbols provided by linker */
-extern int kernel_start;
-extern int kernel_end;
-extern int text_start;
+extern int kernel_start; /* Physical address */
+extern int kernel_end;   /* Physical address */
+extern int text_start;   /* Virtual address */
 
 /* Functions in case we need to output something REALLY REALLY early */
 BOOT_FUNCTION (void boot_halt (void));
@@ -69,7 +69,7 @@ BOOT_SYMBOL (struct multiboot_info *multiboot_info);
 /* Inner state of boot_entry */
 BOOT_SYMBOL (static int cur_x) = 0;
 BOOT_SYMBOL (static int cur_y) = 0;
-BOOT_SYMBOL (static struct page_table *page_dir);
+BOOT_SYMBOL (struct page_table *page_dir); /* This one is accessed by arch.c */
 BOOT_SYMBOL (static struct page_table *page_table_list);
 BOOT_SYMBOL (static int page_table_count);
 

@@ -45,6 +45,12 @@ uintptr_t __arch_resolve_page (void *, uintptr_t, uint8_t, error_t *);
 /* Get remapped page table address */
 uintptr_t *__arch_resolve_pagetable (void *, uintptr_t, uint8_t, error_t *);
 
+/* Map kernel addresses to page directory */
+void __arch_map_kernel (void *);
+
+/* Get kernel image size */
+size_t __arch_get_kernel_layout (void **, uintptr_t *);
+
 /* Initialize hardware (generic way) */
 void machine_init (void);
 

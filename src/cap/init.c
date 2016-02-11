@@ -49,6 +49,7 @@ capabilities_init (capslot_t *root)
 
   cap        = (capslot_t *) atomik_remap_start;
   curr_block = (uintptr_t)   atomik_free_start + PAGE_SIZE;
+  free_size -= PAGE_SIZE; /* First page belongs to boot CNode */
 
   /* In the worst case scenario (64 bits, fully unaligned memory)
      we would require up to 2 * (64 - 12) = 104 untyped memory

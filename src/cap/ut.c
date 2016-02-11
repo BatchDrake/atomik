@@ -91,7 +91,7 @@ atomik_untyped_retype (
   size_t total_size;
   uintptr_t curr_address;
   int alloc_size_bits;
-  unsigned int i = 0;
+  int i = 0;
 
   if (ut->object_type != ATOMIK_OBJTYPE_UNTYPED)
     ATOMIK_FAIL (ATOMIK_ERROR_INVALID_CAPABILITY);
@@ -107,17 +107,17 @@ atomik_untyped_retype (
   obj_size   = 1 << size_bits;
   total_size = obj_size * count;
 
+  /* Check whether we can create all these objects */
+  if (total_size > ut_size)
+    ATOMIK_FAIL (ATOMIK_ERROR_NOT_ENOUGH_MEMORY);
+
   /* Check whether we are trying to retype a high memory
    * UT into a kernel object. This is not allowed since
    * high memory is only usable by userland processes as
    * page frames.
    */
-  if (!__atomik_phys_is_remappable (ut->ut.base, ut_size))
+  if (!__atomik_phys_is_remappable (ut->ut.base, total_size))
     ATOMIK_FAIL (ATOMIK_ERROR_PAGES_ONLY);
-
-  /* Check whether we can create all these objects */
-  if (total_size > ut_size)
-    ATOMIK_FAIL (ATOMIK_ERROR_NOT_ENOUGH_MEMORY);
 
   curr_address = (uintptr_t) UT_BASE (ut);
 
@@ -195,6 +195,9 @@ atomik_untyped_retype (
 
         /* Clear page directory */
         memset (destination[i].page.base, 0, obj_size);
+
+        /* Map kernel */
+        __arch_map_kernel (destination[i].page.base);
 
         break;
 

@@ -19,11 +19,15 @@
 #ifndef _ATOMIK_VSPACE_H
 #define _ATOMIK_VSPACE_H
 
+#include <stdio.h>
+
 #define ATOMIK_PAGEATTR_READABLE   1
 #define ATOMIK_PAGEATTR_WRITABLE   2
 #define ATOMIK_PAGEATTR_EXECUTABLE 4
 #define ATOMIK_PAGEATTR_KERNEL     8
 #define ATOMIK_PAGEATTR_PRESENT    16
+
+#define ATOMIK_INVALID_ADDR ((uintptr_t) -1)
 
 
 /* These pointers are required in order to remap lowmem

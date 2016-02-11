@@ -47,13 +47,15 @@ CPPASSERT (PAGE_BITS + PTE_BITS + PDE_BITS == VIRT_ADDR_BITS);
 
 /* Page-related macros */
 #define PAGE_SIZE            (1 << PAGE_BITS)
-#define PAGE_MASK            (~(PAGE_SIZE - 1))
-#define PAGE_CONTROL_MASK    (~PAGE_MASK)
+#define PTRANGE_SIZE         (1 << (PAGE_BITS + PTE_BITS))
+#define PAGE_CONTROL_MASK    (PAGE_SIZE - 1)
+#define PAGE_MASK            (~PAGE_CONTROL_MASK)
 #define PTE_COUNT            (1 << PTE_BITS)
 #define PDE_COUNT            (1 << PDE_BITS)
 #define PTE_MASK             (PTE_COUNT - 1) /* After shift */
 #define PDE_MASK             (PDE_COUNT - 1) /* After shift */
 #define PAGE_START(x)        ((x) & PAGE_MASK)
+#define PAGE_OFFSET(x)       ((x) & PAGE_CONTROL_MASK)
 
 #define VADDR_GET_PDE_INDEX(addr)  \
   ((((uintptr_t) addr) >> (PAGE_BITS + PTE_BITS)) & PDE_MASK)

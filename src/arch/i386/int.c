@@ -34,12 +34,16 @@ struct idt_ptr   idt_ptr;
 void
 i386_handle_kernel_interrupt (struct i386_fault_frame *frame)
 {
+  uint32_t pfla;
+
+  __asm__ __volatile__ ("movl %%cr2, %0" : "=g" (pfla));
+
   printf ("panic: exception 0x%x at kernel code address 0x%x:0x%x\n",  frame->intno, frame->cs, frame->eip);
   printf ("  eax=0x%08x ebx=0x%08x ecx=0x%08x edx=0x%08x\n",
          frame->eax, frame->ebx, frame->ecx, frame->edx);
   printf ("  ebp=0x%08x esp=0x%08x esi=0x%08x edi=0x%08x\n",
          frame->ebp, frame->esp, frame->esi, frame->edi);
-  printf ("  eflags=0x%08x error=0x%x\n", frame->eflags, frame->error);
+  printf ("  eflags=0x%08x error=0x%x pfla=0x%x\n", frame->eflags, frame->error, pfla);
   
   __arch_machine_halt ();
 }

@@ -20,6 +20,7 @@
 #include <atomik/atomik.h>
 #include <atomik/cap.h>
 #include <atomik/test.h>
+#include <atomik/vspace.h>
 
 #include <arch.h>
 
@@ -40,6 +41,10 @@ test_ut_coverage (struct atomik_test_env *env)
 
   __arch_get_free_memory (&free_start, &free_size);
   __arch_get_kernel_remap (&remap_start, &remap_size);
+
+  /* Note: substract 1 page from root cnode */
+
+  free_size -= PAGE_SIZE;
 
   debug (env, "counting UT capabilities (should be %d bytes...)\n", free_size);
 
@@ -97,8 +102,6 @@ test_ut_retype (struct atomik_test_env *env)
 
   error_t exception = ATOMIK_SUCCESS;
 
-  debug (env, "testing UT retyping\n");
-
   count = CNODE_COUNT (env->root);
 
   ut = test_find_small_ut (env->root, 7);
@@ -137,22 +140,14 @@ test_ut_retype (struct atomik_test_env *env)
     ATOMIK_TEST_ASSERT (destination[i].mdb_parent  == ut);
 
     if (i > 0)
-    {
-      ATOMIK_TEST_ASSERT (destination[i].mdb_prev == &destination[i - 1]);
-    }
+      ATOMIK_TEST_ASSERT (destination[i].mdb_prev == &destination[i - 1])
     else
-    {
-      ATOMIK_TEST_ASSERT (destination[i].mdb_prev == NULL);
-    }
+      ATOMIK_TEST_ASSERT (destination[i].mdb_prev == NULL)
 
     if (i < 3)
-    {
-      ATOMIK_TEST_ASSERT (destination[i].mdb_next == &destination[i + 1]);
-    }
+      ATOMIK_TEST_ASSERT (destination[i].mdb_next == &destination[i + 1])
     else
-    {
-      ATOMIK_TEST_ASSERT (destination[i].mdb_next == NULL);
-    }
+      ATOMIK_TEST_ASSERT (destination[i].mdb_next == NULL)
   }
 
 fail:
@@ -166,9 +161,71 @@ fail:
 static error_t
 test_vspace (struct atomik_test_env *env)
 {
-  /* TODO: Check whether kernel is correctly mapped */
+  int off = -1;
+  unsigned int i, count;
+  capslot_t *ut;
+  capslot_t *destination;
+  error_t exception = ATOMIK_SUCCESS;
+  uintptr_t phys;
+  size_t kernel_size;
+  uintptr_t kernel_virt_start;
+  uintptr_t kernel_phys_start;
 
-  return ATOMIK_SUCCESS;
+  count = CNODE_COUNT (env->root);
+
+  ut = test_find_small_ut (env->root, ATOMIK_PAGE_SIZE_BITS);
+
+  ATOMIK_TEST_ASSERT (ut != NULL);
+
+  for (i = 0; i < count; ++i)
+    if (env->root->cnode.base[i].object_type == ATOMIK_OBJTYPE_NULL)
+      break;
+
+  ATOMIK_TEST_ASSERT (i < count);
+
+  destination = &env->root->cnode.base[i];
+
+  if ((exception = atomik_untyped_retype (ut,
+                                          ATOMIK_OBJTYPE_PD,
+                                          ATOMIK_PAGE_SIZE_BITS,
+                                          destination,
+                                          1)) != ATOMIK_SUCCESS)
+  {
+    debug (env, "call to retype failed: error %d\n", exception);
+
+    ATOMIK_FAIL (ATOMIK_ERROR_TEST_FAILED);
+  }
+
+  kernel_size = __arch_get_kernel_layout ((void **) &kernel_virt_start, &kernel_phys_start);
+
+  for (i = 0; i < kernel_size; i += PAGE_SIZE)
+  {
+    phys = capslot_vspace_resolve (destination, kernel_virt_start + i, 0, &exception);
+
+    if (phys == ATOMIK_INVALID_ADDR)
+    {
+      debug (env, "unexpected error resolving address %p: error %d\n",
+             kernel_virt_start + i,
+             exception);
+      goto fail;
+    }
+
+    if (phys != kernel_phys_start + i)
+    {
+      debug (env, "translation error: expected %p, got %p instead\n",
+                   kernel_phys_start + i,
+                   phys,
+                   exception);
+            goto fail;
+    }
+  }
+
+fail:
+  /* Delete all derived capabilities */
+  if (ut != NULL)
+    atomik_capslot_revoke (ut);
+
+  return exception;
 }
 
 static error_t

@@ -143,5 +143,13 @@ fail:
 uintptr_t
 capslot_vspace_resolve (capslot_t *pd, uintptr_t vaddr, uint8_t access, error_t *error)
 {
-  return __arch_resolve_page (pd->pd.base, vaddr, access, error);
+  uintptr_t page_resolved;
+
+  if ((page_resolved =
+      __arch_resolve_page (pd->pd.base, PAGE_START (vaddr), access, error)) ==
+          ATOMIK_INVALID_ADDR)
+    return ATOMIK_INVALID_ADDR;
+
+  return page_resolved | PAGE_OFFSET (vaddr);
 }
+
