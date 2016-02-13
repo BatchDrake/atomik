@@ -27,6 +27,9 @@
 #define VIRT_ADDR_BITS 32
 
 #define PAGE_BITS      12
+#define PT_BITS        PAGE_BITS
+#define PD_BITS        PAGE_BITS
+
 #define PTE_BITS       10
 #define PDE_BITS       10
 

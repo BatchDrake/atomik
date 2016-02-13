@@ -20,12 +20,18 @@
 #define _ATOMIK_VSPACE_H
 
 #include <stdio.h>
+#include <machinedefs.h>
 
 #define ATOMIK_PAGEATTR_READABLE   1
 #define ATOMIK_PAGEATTR_WRITABLE   2
 #define ATOMIK_PAGEATTR_EXECUTABLE 4
 #define ATOMIK_PAGEATTR_KERNEL     8
 #define ATOMIK_PAGEATTR_PRESENT    16
+
+
+#define ATOMIK_PAGE_SIZE_BITS PAGE_BITS
+#define ATOMIK_PT_SIZE_BITS   PT_BITS
+#define ATOMIK_PD_SIZE_BITS   PD_BITS
 
 #define ATOMIK_INVALID_ADDR ((uintptr_t) -1)
 
@@ -59,10 +65,51 @@ __atomik_phys_is_remappable (void *addr, size_t size)
         size <= atomik_remap_size;
 }
 
+static inline uintptr_t
+__atomik_capslot_get_page_vaddr (const capslot_t *page)
+{
+  return page->page.vaddr_lo1 +
+        (page->page.vaddr_lo2 << 8) +
+        (page->page.vaddr_hi << 16);
+}
+
+static inline void
+__atomik_capslot_set_page_vaddr (capslot_t *page, uintptr_t vaddr)
+{
+  page->page.vaddr_lo1 = vaddr & 0xff;
+  page->page.vaddr_lo2 = (vaddr >> 8) & 0xff;
+  page->page.vaddr_hi  = vaddr >> 16;
+}
+
+static inline uint8_t
+__atomik_access_to_page_attr (uint8_t access)
+{
+  uint8_t attr = ATOMIK_PAGEATTR_PRESENT;
+
+  if (access & ATOMIK_ACCESS_EXEC)
+      attr |= ATOMIK_PAGEATTR_EXECUTABLE;
+
+  if (access & ATOMIK_ACCESS_READ)
+      attr |= ATOMIK_PAGEATTR_READABLE;
+
+  if (access & ATOMIK_ACCESS_WRITE)
+      attr |= ATOMIK_PAGEATTR_WRITABLE;
+
+  return attr;
+}
+
+static inline uint8_t
+__atomik_capslot_to_page_attr (const capslot_t *page)
+{
+  return __atomik_access_to_page_attr (page->page.access);
+}
+
 /*
  * System calls
  */
 int atomik_page_remap (capslot_t *, uint8_t);
+
+int atomik_pt_remap (capslot_t *pt, uint8_t);
 
 int atomik_pd_map_pagetable (capslot_t *, capslot_t *, uintptr_t);
 

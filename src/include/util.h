@@ -19,6 +19,8 @@
 #ifndef _UTIL_H
 #define _UTIL_H
 
+#include <machinedefs.h>
+
 #define _JOIN(x, y) x ## y
 #define JOIN(x, y) _JOIN (x, y)
 
@@ -69,5 +71,7 @@ CPPASSERT (PAGE_BITS + PTE_BITS + PDE_BITS == VIRT_ADDR_BITS);
             "atomik: condition \"" STRINGIFY (expr) "\" not met\n");    \
     __arch_machine_halt ();                                             \
   }
+
+const char *error_to_string (error_t);
 
 #endif /* _UTIL_H */

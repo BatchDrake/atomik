@@ -26,40 +26,9 @@
 #include <atomik/cap.h>
 #include <atomik/vspace.h>
 
-static inline uintptr_t
-__atomik_capslot_get_page_vaddr (const capslot_t *page)
-{
-  return page->page.vaddr_lo1 +
-        (page->page.vaddr_lo2 << 8) +
-        (page->page.vaddr_hi << 16);
-}
-
-static inline void
-__atomik_capslot_set_page_vaddr (capslot_t *page, uintptr_t vaddr)
-{
-  page->page.vaddr_lo1 = vaddr & 0xff;
-  page->page.vaddr_lo2 = (vaddr >> 8) & 0xff;
-  page->page.vaddr_hi  = vaddr >> 16;
-}
-
-static uint8_t
-__atomik_capslot_to_page_attr (const capslot_t *page)
-{
-  uint8_t attr = ATOMIK_PAGEATTR_PRESENT;
-
-  if (page->page.access & ATOMIK_ACCESS_EXEC)
-      attr |= ATOMIK_PAGEATTR_EXECUTABLE;
-
-  if (page->page.access & ATOMIK_ACCESS_READ)
-      attr |= ATOMIK_PAGEATTR_READABLE;
-
-  if (page->page.access & ATOMIK_ACCESS_WRITE)
-      attr |= ATOMIK_PAGEATTR_WRITABLE;
-
-  return attr;
-}
-
-/* This is *only* used to update attributes */
+/* This is *only* used to update page attributes. Allows to temporarily
+ * drop permissions on page without creating extra capabilities.
+ */
 int
 atomik_page_remap (capslot_t *page, uint8_t attr)
 {
@@ -71,7 +40,34 @@ atomik_page_remap (capslot_t *page, uint8_t attr)
   if (page->page.pt == NULL)
     ATOMIK_FAIL (ATOMIK_ERROR_MAP_FIRST);
 
-  /* TODO: Write */
+  __arch_map_page (page->page.pt->pt.base,
+                   page->page.base,
+                   __atomik_capslot_get_page_vaddr (page),
+                   __atomik_access_to_page_attr (page->page.access) & attr);
+
+  return 0;
+
+fail:
+  return -exception;
+}
+
+/* Equivalent thing at PT level
+ */
+int
+atomik_pt_remap (capslot_t *pt, uint8_t attr)
+{
+  error_t exception = ATOMIK_SUCCESS;
+
+  if (pt->object_type != ATOMIK_OBJTYPE_PT)
+      ATOMIK_FAIL (ATOMIK_ERROR_INVALID_CAPABILITY);
+
+  if (pt->page.pt == NULL)
+    ATOMIK_FAIL (ATOMIK_ERROR_MAP_FIRST);
+
+  __arch_map_page (pt->pt.pd->pd.base,
+                   pt->pt.base,
+                   __atomik_capslot_get_page_vaddr (pt),
+                   __atomik_access_to_page_attr (pt->pt.access & attr));
   return 0;
 
 fail:
@@ -126,12 +122,12 @@ atomik_pt_map_page (capslot_t *pt, capslot_t *page, uintptr_t vaddr)
 
   page->page.pt = pt;
 
-  __atomik_capslot_set_page_vaddr (pt, vaddr);
+  __atomik_capslot_set_page_vaddr (page, vaddr);
 
-  __arch_map_pagetable (pt->pt.base,     /* Remap'd addr */
-                        page->page.base, /* Remap'd addr */
-                        vaddr,
-                        __atomik_capslot_to_page_attr (page));
+  __arch_map_page (pt->pt.base,     /* Remap'd addr */
+                   page->page.base, /* Not remapped */
+                   vaddr,
+                   __atomik_capslot_to_page_attr (page));
 
   /* TODO: Write */
   return 0;
@@ -144,6 +140,8 @@ uintptr_t
 capslot_vspace_resolve (capslot_t *pd, uintptr_t vaddr, uint8_t access, error_t *error)
 {
   uintptr_t page_resolved;
+
+  *error = ATOMIK_SUCCESS;
 
   if ((page_resolved =
       __arch_resolve_page (pd->pd.base, PAGE_START (vaddr), access, error)) ==

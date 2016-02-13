@@ -75,7 +75,7 @@ capabilities_init (capslot_t *root)
 
     cap[n].object_type  = ATOMIK_OBJTYPE_UNTYPED;
     cap[n].ut.size_bits = i;
-    
+    cap[n].ut.access = ATOMIK_FULL_ACCESS;
     cap[n].cnode.base = (capslot_t *) curr_block;
 
     ++n;

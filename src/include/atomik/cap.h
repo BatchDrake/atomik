@@ -43,6 +43,12 @@
 #define ATOMIK_ACCESS_READ  4
 #define ATOMIK_ACCESS_GRANT 8
 
+#define ATOMIK_FULL_ACCESS \
+  (ATOMIK_ACCESS_EXEC  | \
+   ATOMIK_ACCESS_WRITE | \
+   ATOMIK_ACCESS_READ  | \
+   ATOMIK_ACCESS_GRANT)
+
 #define UT_BASE(utp) (utp)->ut.base
 #define UT_SIZE(utp) (1 << (utp)->ut.size_bits)
 
@@ -212,6 +218,8 @@ atomik_untyped_retype (
 int atomik_capslot_delete (capslot_t *);
 
 int atomik_capslot_revoke (capslot_t *);
+
+int atomik_capslot_drop (capslot_t *, uint8_t);
 
 /*
  * Convenience functions

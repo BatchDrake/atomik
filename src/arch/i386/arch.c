@@ -71,6 +71,12 @@ __arch_get_kernel_remap (void **premap_start, size_t *premap_size)
 }
 
 void
+__arch_invalidate_page (void *addr)
+{
+  __asm__ __volatile__ ( "invlpg (%0)" : : "b" (addr) : "memory");
+}
+
+void
 __arch_map_page (void *pt, void *frame, uintptr_t vaddr, uint8_t attr)
 {
   uint32_t *x86_pt   = (uint32_t *) pt;
@@ -79,7 +85,7 @@ __arch_map_page (void *pt, void *frame, uintptr_t vaddr, uint8_t attr)
 
   if (vaddr < KERNEL_BASE)
   {
-    if ((attr & ATOMIK_PAGEATTR_READABLE) && (attr & ATOMIK_PAGEATTR_WRITABLE))
+    if (attr & ATOMIK_PAGEATTR_WRITABLE)
       x86_attr |= PAGE_FLAG_WRITABLE;
 
     if (attr & ATOMIK_PAGEATTR_PRESENT)
@@ -103,7 +109,7 @@ __arch_map_pagetable (void *pd, void *pt, uintptr_t vaddr, uint8_t attr)
 
   if (vaddr < KERNEL_BASE)
   {
-    if ((attr & ATOMIK_PAGEATTR_READABLE) && (attr & ATOMIK_PAGEATTR_WRITABLE))
+    if (attr & ATOMIK_PAGEATTR_WRITABLE)
       x86_attr |= PAGE_FLAG_WRITABLE;
 
     if (attr & ATOMIK_PAGEATTR_PRESENT)
@@ -130,7 +136,7 @@ __arch_resolve_pagetable (void *pd, uintptr_t vaddr, uint8_t access, error_t *er
   x86_pde  = x86_pd[VADDR_GET_PDE_INDEX (vaddr)];
   x86_attr = x86_pde & PAGE_CONTROL_MASK;
 
-  if (!x86_attr & PAGE_FLAG_PRESENT)
+  if (!(x86_attr & PAGE_FLAG_PRESENT))
     ATOMIK_FAIL (ATOMIK_ERROR_INVALID_ADDRESS);
 
   if ((x86_attr & access) != access)
@@ -162,7 +168,7 @@ __arch_resolve_page (void *pd, uintptr_t vaddr, uint8_t access, error_t *err)
   x86_pte  = x86_pt[VADDR_GET_PTE_INDEX (vaddr)];
   x86_attr = x86_pte & PAGE_CONTROL_MASK;
 
-  if (!x86_attr & PAGE_FLAG_PRESENT)
+  if (!(x86_attr & PAGE_FLAG_PRESENT))
     ATOMIK_FAIL (ATOMIK_ERROR_INVALID_ADDRESS);
 
   if ((x86_attr & access) != access)

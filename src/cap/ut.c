@@ -43,9 +43,15 @@ __atomik_objtype_adjust_size_bits (objtype_t type, unsigned int *size_bits)
       break;
 
     case ATOMIK_OBJTYPE_PAGE:
-    case ATOMIK_OBJTYPE_PD:
-    case ATOMIK_OBJTYPE_PT:
       *size_bits = ATOMIK_PAGE_SIZE_BITS;
+      break;
+
+    case ATOMIK_OBJTYPE_PD:
+      *size_bits = ATOMIK_PD_SIZE_BITS;
+      break;
+
+    case ATOMIK_OBJTYPE_PT:
+      *size_bits = ATOMIK_PT_SIZE_BITS;
       break;
 
     default:

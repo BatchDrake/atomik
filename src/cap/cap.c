@@ -23,7 +23,7 @@
 
 #include <atomik/atomik.h>
 #include <atomik/cap.h>
-
+#include <atomik/vspace.h>
 
 #define CAPSLOT_LOOKUP_FAILURE(ex, left, guardv, gbits) \
   {                                                     \
@@ -96,6 +96,53 @@ capslot_cspace_resolve (capslot_t *root, cptr_t addr, unsigned char depth, struc
                               bits_resolved,
                               0)
   }
+}
+
+int
+atomik_capslot_drop (capslot_t *slot, uint8_t access)
+{
+  /* Cannot drop privileges if capability has children */
+  if (slot->mdb_child != NULL)
+    return -ATOMIK_ERROR_REVOKE_FIRST;
+
+  switch (slot->object_type)
+  {
+    case ATOMIK_OBJTYPE_CNODE:
+      slot->cnode.access &= ~access;
+      break;
+
+    case ATOMIK_OBJTYPE_ENDPOINT:
+      slot->ep.access &= ~access;
+      break;
+
+    case ATOMIK_OBJTYPE_UNTYPED:
+      slot->ut.access &= ~access;
+      break;
+
+    case ATOMIK_OBJTYPE_PAGE:
+      slot->page.access &= ~access;
+
+      /* We must also update the page table */
+      if (slot->page.pt != NULL)
+        return atomik_page_remap (slot,
+                                  __atomik_access_to_page_attr (
+                                      slot->page.access));
+
+      break;
+
+    case ATOMIK_OBJTYPE_PT:
+      slot->pt.access &= ~access;
+      break;
+
+    case ATOMIK_OBJTYPE_PD:
+      slot->pd.access &= ~access;
+      break;
+
+    default:
+      return -ATOMIK_ERROR_INVALID_CAPABILITY;
+  }
+
+  return ATOMIK_SUCCESS;
 }
 
 int

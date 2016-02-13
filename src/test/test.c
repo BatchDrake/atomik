@@ -91,6 +91,33 @@ test_find_small_ut (const capslot_t *root, unsigned int bits)
   return found;
 }
 
+static capslot_t *
+test_find_free_capslots (const capslot_t *root, unsigned int count)
+{
+  unsigned int i, j;
+  unsigned int entries;
+
+  entries = CNODE_COUNT (root);
+
+  for (i = 0; i < entries; ++i)
+    if (root->cnode.base[i].object_type == ATOMIK_OBJTYPE_NULL)
+    {
+      for (j = 0; j < count && (i + j) < entries; ++j)
+        if (root->cnode.base[i + j].object_type != ATOMIK_OBJTYPE_NULL)
+          break; /* Found busy capslot */
+
+      if (j == count) /* Found `count' free capslots */
+        break;
+
+      i += j; /* [i + j] has already been visited */
+    }
+
+  if (i < entries)
+    return &root->cnode.base[i];
+
+  return NULL;
+}
+
 static error_t
 test_ut_retype (struct atomik_test_env *env)
 {
@@ -105,30 +132,13 @@ test_ut_retype (struct atomik_test_env *env)
   count = CNODE_COUNT (env->root);
 
   ut = test_find_small_ut (env->root, 7);
-
   ATOMIK_TEST_ASSERT (ut != NULL);
 
-  for (i = 0; i < count; ++i)
-    if (env->root->cnode.base[i].object_type == ATOMIK_OBJTYPE_NULL)
-      break;
+  destination = test_find_free_capslots (env->root, 4);
+  ATOMIK_TEST_ASSERT (destination != NULL);
 
-  ATOMIK_TEST_ASSERT (i + 4 <= count);
-
-  destination = &env->root->cnode.base[i];
-
-  for (i = 0; i < 4; ++i)
-    ATOMIK_TEST_ASSERT (destination[i].object_type == ATOMIK_OBJTYPE_NULL);
-
-  if ((exception = atomik_untyped_retype (ut,
-                                          ATOMIK_OBJTYPE_UNTYPED,
-                                          5,
-                                          destination,
-                                          4)) != ATOMIK_SUCCESS)
-  {
-    debug (env, "call to retype failed: error %d\n", exception);
-
-    ATOMIK_FAIL (ATOMIK_ERROR_TEST_FAILED);
-  }
+  ATOMIK_TEST_ASSERT_SUCCESS (
+      atomik_untyped_retype (ut, ATOMIK_OBJTYPE_UNTYPED, 5, destination, 4));
 
   off = i;
 
@@ -173,28 +183,16 @@ test_vspace (struct atomik_test_env *env)
 
   count = CNODE_COUNT (env->root);
 
-  ut = test_find_small_ut (env->root, ATOMIK_PAGE_SIZE_BITS);
-
+  ut = test_find_small_ut (env->root, ATOMIK_PD_SIZE_BITS);
   ATOMIK_TEST_ASSERT (ut != NULL);
 
-  for (i = 0; i < count; ++i)
-    if (env->root->cnode.base[i].object_type == ATOMIK_OBJTYPE_NULL)
-      break;
+  destination = test_find_free_capslots (env->root, 1);
+  ATOMIK_TEST_ASSERT (destination != NULL);
 
-  ATOMIK_TEST_ASSERT (i < count);
-
-  destination = &env->root->cnode.base[i];
-
-  if ((exception = atomik_untyped_retype (ut,
-                                          ATOMIK_OBJTYPE_PD,
-                                          ATOMIK_PAGE_SIZE_BITS,
-                                          destination,
-                                          1)) != ATOMIK_SUCCESS)
-  {
-    debug (env, "call to retype failed: error %d\n", exception);
-
-    ATOMIK_FAIL (ATOMIK_ERROR_TEST_FAILED);
-  }
+  ATOMIK_TEST_ASSERT_SUCCESS (
+      atomik_untyped_retype (ut, ATOMIK_OBJTYPE_PD, ATOMIK_PD_SIZE_BITS,
+                             destination,
+                             1));
 
   kernel_size = __arch_get_kernel_layout ((void **) &kernel_virt_start, &kernel_phys_start);
 
@@ -204,9 +202,9 @@ test_vspace (struct atomik_test_env *env)
 
     if (phys == ATOMIK_INVALID_ADDR)
     {
-      debug (env, "unexpected error resolving address %p: error %d\n",
+      debug (env, "unexpected error resolving address %p: %s\n",
              kernel_virt_start + i,
-             exception);
+             error_to_string (exception));
       goto fail;
     }
 
@@ -214,8 +212,7 @@ test_vspace (struct atomik_test_env *env)
     {
       debug (env, "translation error: expected %p, got %p instead\n",
                    kernel_phys_start + i,
-                   phys,
-                   exception);
+                   phys);
             goto fail;
     }
   }
@@ -231,9 +228,171 @@ fail:
 static error_t
 test_vspace_paging (struct atomik_test_env *env)
 {
-  /* TODO: Check whether paging works (i.e. translate) */
+  unsigned int i, count;
+  capslot_t *ut;
+  capslot_t *destination;
+  capslot_t *pd, *pt, *pages;
+  error_t exception = ATOMIK_SUCCESS;
+  int should_read, should_write, should_execute;
+  int could_read, could_write, could_execute;
+  uintptr_t phys;
 
-  return ATOMIK_SUCCESS;
+  count = CNODE_COUNT (env->root);
+
+  /* We require
+   * a) 1 PD
+   * b) 1 PT
+   * c) 8 pages
+   *
+   * This is 2^4 pages of bytes.
+   * We also require 10 UT slots and 10 slots for conversion.
+   */
+  ut = test_find_small_ut (env->root, ATOMIK_PAGE_SIZE_BITS + 4);
+  ATOMIK_TEST_ASSERT (ut != NULL);
+
+  /* This is where all UTs will be placed */
+  destination = test_find_free_capslots (env->root, 10);
+  ATOMIK_TEST_ASSERT (destination != NULL);
+
+  /* Split UT into smaller UTs */
+  ATOMIK_TEST_ASSERT_SUCCESS (
+      -atomik_untyped_retype (ut, ATOMIK_OBJTYPE_UNTYPED, ATOMIK_PAGE_SIZE_BITS,
+                              destination,
+                              10));
+
+
+  /* Initialize, PD, PT and pages */
+  pd    = test_find_free_capslots (env->root, 1);
+  ATOMIK_TEST_ASSERT (pd != NULL);
+  ATOMIK_TEST_ASSERT_SUCCESS (
+      -atomik_untyped_retype (&destination[0], ATOMIK_OBJTYPE_PD,
+                              ATOMIK_PD_SIZE_BITS,
+                              pd,
+                              1));
+
+  pt    = test_find_free_capslots (env->root, 1);
+  ATOMIK_TEST_ASSERT (pt != NULL);
+  ATOMIK_TEST_ASSERT_SUCCESS (
+      -atomik_untyped_retype (&destination[1], ATOMIK_OBJTYPE_PT,
+                              ATOMIK_PT_SIZE_BITS,
+                              pt,
+                              1));
+
+  pages = test_find_free_capslots (env->root, 8);
+  ATOMIK_TEST_ASSERT (pages != NULL);
+  for (i = 0; i < 8; ++i)
+    ATOMIK_TEST_ASSERT_SUCCESS (
+        -atomik_untyped_retype (&destination[2 + i], ATOMIK_OBJTYPE_PAGE,
+                                ATOMIK_PAGE_SIZE_BITS,
+                                &pages[i],
+                                1)); /* 8 pages */
+
+  ATOMIK_TEST_ASSERT_SUCCESS (-atomik_pd_map_pagetable (pd, pt, 0x08000000));
+
+  for (i = 0; i < 8; ++i)
+  {
+    ATOMIK_TEST_ASSERT_SUCCESS (
+        -atomik_pt_map_page (pt, &pages[i], 0x08048000 + (i << PAGE_BITS)));
+
+    /* Drop privileges */
+    ATOMIK_TEST_ASSERT_SUCCESS (-atomik_capslot_drop (&pages[i], ~i));
+  }
+
+  /* Phase 1: Test whether all virtual addresses have been correctly mapped */
+  debug (env, "Phase 1: Resolving all mapped addresses...\n");
+
+  for (i = 0; i < 8; ++i)
+  {
+    debug (env, "  0x%08x? ", 0x08048000 + (i << PAGE_BITS));
+
+    phys = capslot_vspace_resolve (destination,
+                                   0x08048000 + (i << PAGE_BITS),
+                                   0,
+                                   &exception);
+
+    printf ("0x%08x\n", phys);
+
+    if (phys == ATOMIK_INVALID_ADDR)
+    {
+      debug (env, "Translation error: cannot translate page %d\n", i);
+      debug (env, "capslot_vspace_resolve failed (%s)\n",
+             error_to_string (exception));
+
+      goto fail;
+    }
+
+    if (phys != (uintptr_t) pages[i].page.base)
+    {
+      debug (env, "Unexpected physical address. Expected %p, got %p\n",
+             pages[i].page.base,
+             phys);
+      ATOMIK_FAIL (ATOMIK_ERROR_TEST_FAILED);
+    }
+  }
+
+  /* Phase 2: Test access */
+  debug (env, "Phase 2: Trying different access modes...\n");
+
+  for (i = 0; i < 8; ++i)
+  {
+    should_read    = !!(i & ATOMIK_ACCESS_READ);
+    should_write   = !!(i & ATOMIK_ACCESS_WRITE);
+    should_execute = !!(i & ATOMIK_ACCESS_EXEC);
+
+    debug (env, "  0x%08x (%c%c%c)? ",
+           0x08048000 + (i << PAGE_BITS),
+           should_read ? 'r' : '-',
+           should_write ? 'w' : '-',
+           should_execute ? 'x' : '-');
+
+    phys = capslot_vspace_resolve (destination,
+                                   0x08048000 + (i << PAGE_BITS),
+                                   ATOMIK_ACCESS_READ,
+                                   &exception);
+    ATOMIK_ASSERT (exception == ATOMIK_SUCCESS ||
+                   exception == ATOMIK_ERROR_ACCESS_DENIED);
+    could_read = phys != ATOMIK_INVALID_ADDR;
+
+    phys = capslot_vspace_resolve (destination,
+                                   0x08048000 + (i << PAGE_BITS),
+                                   ATOMIK_ACCESS_WRITE,
+                                   &exception);
+    ATOMIK_ASSERT (exception == ATOMIK_SUCCESS ||
+                   exception == ATOMIK_ERROR_ACCESS_DENIED);
+    could_write = phys != ATOMIK_INVALID_ADDR;
+
+    phys = capslot_vspace_resolve (destination,
+                                   0x08048000 + (i << PAGE_BITS),
+                                   ATOMIK_ACCESS_EXEC,
+                                   &exception);
+    ATOMIK_ASSERT (exception == ATOMIK_SUCCESS ||
+                   exception == ATOMIK_ERROR_ACCESS_DENIED);
+    could_execute = phys != ATOMIK_INVALID_ADDR;
+
+    printf ("%c%c%c\n",
+           could_read ? 'r' : '-',
+           could_write ? 'w' : '-',
+           could_execute ? 'x' : '-');
+
+    /* In x86 there are some access configurations that are not possible */
+
+    if (should_read)
+      ATOMIK_TEST_ASSERT (could_read == should_read);
+
+    ATOMIK_TEST_ASSERT (could_write == should_write);
+
+    if (should_execute)
+      ATOMIK_TEST_ASSERT (could_execute == should_execute);
+  }
+
+  exception = ATOMIK_SUCCESS;
+
+fail:
+  /* Delete all derived capabilities */
+  if (ut != NULL)
+    atomik_capslot_revoke (ut);
+
+  return exception;
 }
 
 static error_t

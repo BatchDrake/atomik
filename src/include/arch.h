@@ -51,6 +51,9 @@ void __arch_map_kernel (void *);
 /* Get kernel image size */
 size_t __arch_get_kernel_layout (void **, uintptr_t *);
 
+/* Invalidate page */
+void __arch_invalidate_page (void *);
+
 /* Initialize hardware (generic way) */
 void machine_init (void);
 

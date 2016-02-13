@@ -38,6 +38,15 @@
   } \
 }
 
+#define ATOMIK_TEST_ASSERT_SUCCESS(expr) \
+{\
+  if ((exception = (expr)) != ATOMIK_SUCCESS) \
+  { \
+    debug (env, "Test assertion failed: " STRINGIFY (expr) \
+           " (%s)\n", error_to_string (exception)); \
+    goto fail; \
+  } \
+}
 
 struct atomik_test_env
 {
