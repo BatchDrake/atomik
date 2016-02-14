@@ -54,6 +54,9 @@ size_t __arch_get_kernel_layout (void **, uintptr_t *);
 /* Invalidate page */
 void __arch_invalidate_page (void *);
 
+/* Switch vspace */
+void __arch_switch_vspace (void *);
+
 /* Initialize hardware (generic way) */
 void machine_init (void);
 

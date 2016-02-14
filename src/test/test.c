@@ -16,7 +16,10 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include <atomik/atomik.h>
 #include <atomik/cap.h>
 #include <atomik/test.h>
@@ -63,6 +66,7 @@ test_ut_coverage (struct atomik_test_env *env)
   return ATOMIK_SUCCESS;
 }
 
+/* TODO: Force lookup of remappable UT */
 static capslot_t *
 test_find_small_ut (const capslot_t *root, unsigned int bits)
 {
@@ -294,6 +298,10 @@ test_vspace_paging (struct atomik_test_env *env)
     ATOMIK_TEST_ASSERT_SUCCESS (
         -atomik_pt_map_page (pt, &pages[i], 0x08048000 + (i << PAGE_BITS)));
 
+    ATOMIK_TEST_ASSERT (
+        __atomik_capslot_get_page_vaddr (&pages[i]) ==
+            0x08048000 + (i << PAGE_BITS));
+
     /* Drop privileges */
     ATOMIK_TEST_ASSERT_SUCCESS (-atomik_capslot_drop (&pages[i], ~i));
   }
@@ -305,7 +313,7 @@ test_vspace_paging (struct atomik_test_env *env)
   {
     debug (env, "  0x%08x? ", 0x08048000 + (i << PAGE_BITS));
 
-    phys = capslot_vspace_resolve (destination,
+    phys = capslot_vspace_resolve (pd,
                                    0x08048000 + (i << PAGE_BITS),
                                    0,
                                    &exception);
@@ -345,28 +353,25 @@ test_vspace_paging (struct atomik_test_env *env)
            should_write ? 'w' : '-',
            should_execute ? 'x' : '-');
 
-    phys = capslot_vspace_resolve (destination,
-                                   0x08048000 + (i << PAGE_BITS),
+    phys = capslot_vspace_resolve (pd, 0x08048000 + (i << PAGE_BITS),
                                    ATOMIK_ACCESS_READ,
                                    &exception);
-    ATOMIK_ASSERT (exception == ATOMIK_SUCCESS ||
-                   exception == ATOMIK_ERROR_ACCESS_DENIED);
+    ATOMIK_TEST_ASSERT (exception == ATOMIK_SUCCESS ||
+                        exception == ATOMIK_ERROR_ACCESS_DENIED);
     could_read = phys != ATOMIK_INVALID_ADDR;
 
-    phys = capslot_vspace_resolve (destination,
-                                   0x08048000 + (i << PAGE_BITS),
+    phys = capslot_vspace_resolve (pd, 0x08048000 + (i << PAGE_BITS),
                                    ATOMIK_ACCESS_WRITE,
                                    &exception);
-    ATOMIK_ASSERT (exception == ATOMIK_SUCCESS ||
-                   exception == ATOMIK_ERROR_ACCESS_DENIED);
+    ATOMIK_TEST_ASSERT (exception == ATOMIK_SUCCESS ||
+                        exception == ATOMIK_ERROR_ACCESS_DENIED);
     could_write = phys != ATOMIK_INVALID_ADDR;
 
-    phys = capslot_vspace_resolve (destination,
-                                   0x08048000 + (i << PAGE_BITS),
+    phys = capslot_vspace_resolve (pd, 0x08048000 + (i << PAGE_BITS),
                                    ATOMIK_ACCESS_EXEC,
                                    &exception);
-    ATOMIK_ASSERT (exception == ATOMIK_SUCCESS ||
-                   exception == ATOMIK_ERROR_ACCESS_DENIED);
+    ATOMIK_TEST_ASSERT (exception == ATOMIK_SUCCESS ||
+                        exception == ATOMIK_ERROR_ACCESS_DENIED);
     could_execute = phys != ATOMIK_INVALID_ADDR;
 
     printf ("%c%c%c\n",
@@ -398,9 +403,100 @@ fail:
 static error_t
 test_vspace_switch (struct atomik_test_env *env)
 {
-  /* TODO: Check whether we can switch to a given vspace */
+  unsigned int i, count;
+  capslot_t *ut;
+  capslot_t *destination;
+  capslot_t *pd, *pt, *pages;
+  error_t exception = ATOMIK_SUCCESS;
+  uintptr_t phys;
+  char *remapped, *virt;
 
-  return ATOMIK_SUCCESS;
+  count = CNODE_COUNT (env->root);
+
+  ut = test_find_small_ut (env->root, ATOMIK_PAGE_SIZE_BITS + 4);
+  ATOMIK_TEST_ASSERT (ut != NULL);
+
+  /* This is where all UTs will be placed */
+  destination = test_find_free_capslots (env->root, 10);
+  ATOMIK_TEST_ASSERT (destination != NULL);
+
+  /* Split UT into smaller UTs */
+  ATOMIK_TEST_ASSERT_SUCCESS (
+      -atomik_untyped_retype (ut, ATOMIK_OBJTYPE_UNTYPED, ATOMIK_PAGE_SIZE_BITS,
+                              destination,
+                              10));
+
+
+  /* Initialize, PD, PT and pages */
+  pd    = test_find_free_capslots (env->root, 1);
+  ATOMIK_TEST_ASSERT (pd != NULL);
+  ATOMIK_TEST_ASSERT_SUCCESS (
+      -atomik_untyped_retype (&destination[0], ATOMIK_OBJTYPE_PD,
+                              ATOMIK_PD_SIZE_BITS,
+                              pd,
+                              1));
+
+  pt    = test_find_free_capslots (env->root, 1);
+  ATOMIK_TEST_ASSERT (pt != NULL);
+  ATOMIK_TEST_ASSERT_SUCCESS (
+      -atomik_untyped_retype (&destination[1], ATOMIK_OBJTYPE_PT,
+                              ATOMIK_PT_SIZE_BITS,
+                              pt,
+                              1));
+
+  pages = test_find_free_capslots (env->root, 8);
+  ATOMIK_TEST_ASSERT (pages != NULL);
+  for (i = 0; i < 8; ++i)
+    ATOMIK_TEST_ASSERT_SUCCESS (
+        -atomik_untyped_retype (&destination[2 + i], ATOMIK_OBJTYPE_PAGE,
+                                ATOMIK_PAGE_SIZE_BITS,
+                                &pages[i],
+                                1)); /* 8 pages */
+
+  ATOMIK_TEST_ASSERT_SUCCESS (-atomik_pd_map_pagetable (pd, pt, 0x08000000));
+
+  /* Map all eight pages */
+  for (i = 0; i < 8; ++i)
+  {
+    ATOMIK_TEST_ASSERT_SUCCESS (
+        -atomik_pt_map_page (pt, &pages[i], 0x08048000 + (i << PAGE_BITS)));
+
+    /* TODO: this is dangerous */
+    sprintf (__atomik_phys_to_remap ((uintptr_t) pages[i].page.base),
+             "This is page %d (physical address %p)",
+             i,
+             pages[i].page.base);
+  }
+
+  debug (env, "Switching to new vspace...\n");
+
+  /* Switch vspace. This is one of the most critical operations we
+   * can perform in kernel mode. */
+  ATOMIK_TEST_ASSERT_SUCCESS (-capslot_vspace_switch (pd));
+
+  debug (env, "Address space switched. Page contents:\n");
+
+  for (i = 0; i < 8; ++i)
+  {
+    remapped = (char *) __atomik_phys_to_remap ((uintptr_t) pages[i].page.base);
+    virt     = (char *) __atomik_capslot_get_page_vaddr (&pages[i]);
+
+    debug (env, "  %p -> \"%s\"\n", virt, virt);
+
+    ATOMIK_TEST_ASSERT (strcmp (remapped, virt) == 0);
+  }
+
+  /* Come back */
+  ATOMIK_TEST_ASSERT_SUCCESS (-capslot_vspace_switch (NULL));
+
+  exception = ATOMIK_SUCCESS;
+
+fail:
+  /* Delete all derived capabilities */
+  if (ut != NULL)
+    atomik_capslot_revoke (ut);
+
+  return exception;
 }
 
 static error_t

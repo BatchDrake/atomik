@@ -26,6 +26,7 @@
 #include <i386-int.h>
 #include <i386-irq.h>
 #include <i386-seg.h>
+#include <i386-regs.h>
 #include <i386-page.h>
 #include <i386-layout.h>
 
@@ -217,7 +218,22 @@ __arch_map_kernel (void *pd)
         PAGE_FLAG_WRITABLE |
         PAGE_FLAG_GLOBAL;
   }
+}
 
+/* Switch virtual address space. Accepts remapped address */
+void
+__arch_switch_vspace (void *pd)
+{
+  uint32_t *x86_pd;
+
+  if (pd != NULL)
+  {
+    x86_pd = (uint32_t *) __atomik_remap_to_phys (pd);
+
+    SET_REGISTER ("%cr3", x86_pd);
+  }
+  else /* Set boot mode page directory */
+    SET_REGISTER ("%cr3", page_dir);
 }
 
 void

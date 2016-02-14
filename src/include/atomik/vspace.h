@@ -120,4 +120,6 @@ int atomik_pt_map_page (capslot_t *, capslot_t *, uintptr_t);
  */
 uintptr_t capslot_vspace_resolve (capslot_t *, uintptr_t, uint8_t, error_t *);
 
+int capslot_vspace_switch (capslot_t *);
+
 #endif /* _ATOMIK_VSPACE_H */

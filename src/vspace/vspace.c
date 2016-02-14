@@ -141,13 +141,40 @@ capslot_vspace_resolve (capslot_t *pd, uintptr_t vaddr, uint8_t access, error_t 
 {
   uintptr_t page_resolved;
 
+  if (pd->object_type != ATOMIK_OBJTYPE_PD)
+  {
+    *error = ATOMIK_ERROR_INVALID_CAPABILITY;
+    goto fail;
+  }
+
   *error = ATOMIK_SUCCESS;
 
   if ((page_resolved =
       __arch_resolve_page (pd->pd.base, PAGE_START (vaddr), access, error)) ==
           ATOMIK_INVALID_ADDR)
-    return ATOMIK_INVALID_ADDR;
+    goto fail;
 
   return page_resolved | PAGE_OFFSET (vaddr);
+
+fail:
+  return ATOMIK_INVALID_ADDR;
 }
 
+int
+capslot_vspace_switch (capslot_t *pd)
+{
+  error_t exception = ATOMIK_SUCCESS;
+
+  if (pd == NULL)
+    __arch_switch_vspace (NULL);
+  else
+  {
+    if (pd->object_type != ATOMIK_OBJTYPE_PD)
+      ATOMIK_FAIL (ATOMIK_ERROR_INVALID_CAPABILITY);
+
+    __arch_switch_vspace (pd->pd.base);
+  }
+
+fail:
+  return -exception;
+}

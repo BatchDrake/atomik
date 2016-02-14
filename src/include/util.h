@@ -68,7 +68,8 @@ CPPASSERT (PAGE_BITS + PTE_BITS + PDE_BITS == VIRT_ADDR_BITS);
   if (!(expr))                                                          \
   {                                                                     \
     printf ("atomik: assertion failed in %s:%d\n"                       \
-            "atomik: condition \"" STRINGIFY (expr) "\" not met\n");    \
+            "atomik: condition \"" STRINGIFY (expr) "\" not met\n",     \
+            __FILE__, __LINE__);                                        \
     __arch_machine_halt ();                                             \
   }
 

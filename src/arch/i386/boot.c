@@ -36,6 +36,9 @@ void  *free_start;
 size_t free_size;
 void  *remap_start;
 size_t remap_size;
+struct page_table *page_dir; /* This one is accessed by arch.c */
+
+char kernel_stack[4 * PAGE_SIZE] __attribute__ ((aligned (PAGE_SIZE)));
 
 /* Symbols provided by linker */
 extern int kernel_start; /* Physical address */
@@ -69,7 +72,7 @@ BOOT_SYMBOL (struct multiboot_info *multiboot_info);
 /* Inner state of boot_entry */
 BOOT_SYMBOL (static int cur_x) = 0;
 BOOT_SYMBOL (static int cur_y) = 0;
-BOOT_SYMBOL (struct page_table *page_dir); /* This one is accessed by arch.c */
+BOOT_SYMBOL (struct page_table *boot_page_dir);
 BOOT_SYMBOL (static struct page_table *page_table_list);
 BOOT_SYMBOL (static int page_table_count);
 
@@ -315,13 +318,13 @@ boot_setup_vregion (uint32_t page_phys_start, uint32_t page_virt_start, uint32_t
     page_phys = j + page_phys_start;
     page_virt = j + page_virt_start;
     
-    if (!page_dir->entries[page_virt >> 10])
+    if (!boot_page_dir->entries[page_virt >> 10])
     {
       current = page_table_list + page_table_count++;
-      page_dir->entries[page_virt >> 10] = (uint32_t) current | PAGE_FLAG_PRESENT | PAGE_FLAG_WRITABLE;
+      boot_page_dir->entries[page_virt >> 10] = (uint32_t) current | PAGE_FLAG_PRESENT | PAGE_FLAG_WRITABLE;
     }
     else
-      current = (struct page_table *) (page_dir->entries[page_virt >> 10] & PAGE_MASK);
+      current = (struct page_table *) (boot_page_dir->entries[page_virt >> 10] & PAGE_MASK);
     
     current->entries[page_virt & 1023] = (page_phys << 12) | PAGE_FLAG_PRESENT | PAGE_FLAG_WRITABLE;
   }
@@ -365,12 +368,12 @@ boot_prepare_paging_early (void)
       free_mem = __ALIGN (mod->mod_end, PAGE_SIZE);
   }
   
-  page_dir = (struct page_table *) free_mem;
-  page_table_list = page_dir + 1;
+  boot_page_dir = (struct page_table *) free_mem;
+  page_table_list = boot_page_dir + 1;
   page_table_count = 0;
   
   for (i = 0; i < PAGE_SIZE / sizeof (uint32_t); ++i)
-    page_dir->entries[i] = 0;
+    boot_page_dir->entries[i] = 0;
 
   mmap_count = mbi->mmap_length / sizeof (memory_map_t);
 
@@ -471,7 +474,7 @@ boot_entry (void)
   
   boot_puts (string7);
   
-  SET_REGISTER ("%cr3", page_dir);
+  SET_REGISTER ("%cr3", boot_page_dir);
   
   GET_REGISTER ("%cr0", cr0);
   
@@ -487,5 +490,16 @@ boot_entry (void)
 
   boot_screen_clear (0x07);
   
-  main ();
+  /* Make this pointer available to the remapped kernel */
+  page_dir = boot_page_dir;
+
+  /* Perform stack switch & call main */
+  __asm__ __volatile__ (
+      ".extern main\n"
+      "leal (%0), %%esp\n"
+      "addl %%eax, %%esp\n"
+      "call main\n"
+      : :
+        "m" (kernel_stack),
+        "a" (sizeof (kernel_stack) - 4));
 }
