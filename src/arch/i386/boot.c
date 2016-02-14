@@ -29,14 +29,12 @@
 
 #define BOOTTIME_DEFAULT_ATTRIBUTE 0x1f
 
-void main (void);
-
-/* Global variables */
+/* Global variables. These can be used by the remapped kernel. */
 void  *free_start;
 size_t free_size;
 void  *remap_start;
 size_t remap_size;
-struct page_table *page_dir; /* This one is accessed by arch.c */
+struct page_table *page_dir;
 
 char kernel_stack[4 * PAGE_SIZE] __attribute__ ((aligned (PAGE_SIZE)));
 
@@ -45,29 +43,34 @@ extern int kernel_start; /* Physical address */
 extern int kernel_end;   /* Physical address */
 extern int text_start;   /* Virtual address */
 
-/* Functions in case we need to output something REALLY REALLY early */
-BOOT_FUNCTION (void boot_halt (void));
-BOOT_FUNCTION (void boot_screen_clear (uint8_t));
-BOOT_FUNCTION (void boot_puts (const char *));
-BOOT_FUNCTION (void boot_print_hex (uint32_t));
-BOOT_FUNCTION (void boot_print_dec (uint32_t));
-
+/* This is the only public boot function */
 BOOT_FUNCTION (void boot_entry (void));
-BOOT_FUNCTION (void boot_fix_multiboot (void));
+
+/* Functions and symbols below this line are static to protect accidental
+ * access from arch.c
+ */
+
+/* Functions in case we need to output something REALLY REALLY early */
+BOOT_FUNCTION (static void boot_halt (void));
+BOOT_FUNCTION (static void boot_screen_clear (uint8_t));
+BOOT_FUNCTION (static void boot_puts (const char *));
+BOOT_FUNCTION (static void boot_print_hex (uint32_t));
+BOOT_FUNCTION (static void boot_print_dec (uint32_t));
+BOOT_FUNCTION (static void boot_fix_multiboot (void));
 
 /* Symbols required by extern files */
-BOOT_SYMBOL (uint32_t __free_start);
-BOOT_SYMBOL (uint32_t __free_size);
-BOOT_SYMBOL (uint32_t __remap_start);
-BOOT_SYMBOL (uint32_t __remap_size);
+BOOT_SYMBOL (static uint32_t __free_start);
+BOOT_SYMBOL (static uint32_t __free_size);
+BOOT_SYMBOL (static uint32_t __remap_start);
+BOOT_SYMBOL (static uint32_t __remap_size);
 
-BOOT_SYMBOL (void *initrd_phys) = NULL;
-BOOT_SYMBOL (void *initrd_start) = NULL;
-BOOT_SYMBOL (uint32_t initrd_size) = 0;
+BOOT_SYMBOL (static void *initrd_phys) = NULL;
+BOOT_SYMBOL (static void *initrd_start) = NULL;
+BOOT_SYMBOL (static uint32_t initrd_size) = 0;
 
 BOOT_SYMBOL (char bootstack[4 * PAGE_SIZE]); /* Boot stack, as used by _start */
-BOOT_SYMBOL (char cmdline_copy[128]);
-BOOT_SYMBOL (struct multiboot_info *multiboot_info);
+BOOT_SYMBOL (static char cmdline_copy[128]);
+BOOT_SYMBOL (static struct multiboot_info *multiboot_info);
 
 /* Inner state of boot_entry */
 BOOT_SYMBOL (static int cur_x) = 0;
