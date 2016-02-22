@@ -17,6 +17,7 @@
  */
  
 #include <i386-irq.h>
+#include <i386-regs.h>
 
 /* io_wait: ensure PIC chip updates its state. This
    is not necessary nowadays (also, we lose several

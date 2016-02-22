@@ -35,8 +35,8 @@
 #endif
 
 #define ATOMIK_MIN_UT_SIZE_BITS    ATOMIK_CAPSLOT_SIZE_BITS
-#define ATOMIK_CAPSLOT_SIZE (1 << ATOMIK_CAPSLOT_SIZE_BITS)
-#define ATOMIK_OBJPART_SIZE (1 << (ATOMIK_CAPSLOT_SIZE_BITS - 1))
+#define ATOMIK_CAPSLOT_SIZE BIT (ATOMIK_CAPSLOT_SIZE_BITS)
+#define ATOMIK_OBJPART_SIZE BIT ((ATOMIK_CAPSLOT_SIZE_BITS - 1))
 
 #define ATOMIK_ACCESS_EXEC  1
 #define ATOMIK_ACCESS_WRITE 2
@@ -67,7 +67,8 @@ enum objtype
   ATOMIK_OBJTYPE_PT,
   ATOMIK_OBJTYPE_PD,
   ATOMIK_OBJTYPE_ENDPOINT,
-  ATOMIK_OBJTYPE_NOTIFICATION
+  ATOMIK_OBJTYPE_NOTIFICATION,
+  ATOMIK_OBJTYPE_TCB
 };
 
 typedef enum objtype objtype_t;
@@ -81,6 +82,8 @@ enum epstate
 
 typedef enum epstate epstate_t;
 
+struct tcb;
+
 struct capslot
 {
   union
@@ -93,8 +96,9 @@ struct capslot
       objtype_t object_type:8;
       uint8_t   size_bits;
       uint8_t   access;
-      uint8_t   unused;
+      uint8_t   unused;    /* Size of objects inside this UT */
       void     *base;
+      size_t    watermark; /* Untyped memory watermark level */
     }
     ut;
 
@@ -107,10 +111,21 @@ struct capslot
       uint8_t guard_bits;
       struct capslot *base;
       uint32_t guard;
-
+      struct tcb *tcb; /* Backpointer to TCB */
     }
     cnode;
     
+    /* Capability as TCB */
+    struct
+    {
+      objtype_t object_type:8;
+      uint8_t unused_1;
+      uint8_t access;
+      uint8_t unused_2;
+      struct tcb *base;
+    }
+    tcb;
+
 #ifdef __i386__
     /* Capability as page */
     struct
@@ -146,6 +161,7 @@ struct capslot
       uint8_t   access;
       uint8_t   unused_2;
       uintptr_t *base;
+      struct tcb *tcb;
     }
     pd;
 #else

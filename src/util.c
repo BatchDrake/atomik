@@ -75,6 +75,9 @@ error_to_string (error_t err)
     case ATOMIK_ERROR_TEST_FAILED:
       return "Microkernel unit test has failed";
 
+    case ATOMIK_ERROR_ALREADY_BOUND:
+      return "Object is already bound to a TCB";
+
     default:
       return "Unknown error";
   }

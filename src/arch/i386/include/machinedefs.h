@@ -22,6 +22,7 @@
 #define _ARCH_MACHINEDEFS_H
 
 #include <i386-tcb.h>
+#include <i386-layout.h>
 
 #define PHYS_ADDR_BITS 32
 #define VIRT_ADDR_BITS 32
@@ -32,5 +33,8 @@
 
 #define PTE_BITS       10
 #define PDE_BITS       10
+
+#define PREFERED_STACK_SIZE (1 << (PAGE_BITS + 4))
+#define PREFERED_STACK_BASE (KERNEL_BASE - PREFERED_STACK_SIZE)
 
 #endif /* _ARCH_MACHINEDEFS_H */

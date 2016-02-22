@@ -24,15 +24,13 @@
 #include <stdio.h>
 #include <arch.h>
 
-tcb_t *current;
-
 void
-main (void)
+main (void *root_task_base, size_t root_task_size)
 {
   int i;
 
   capslot_t root;
-  capslot_t *entry;
+  capslot_t *root_task;
   
   machine_init ();
 
@@ -41,9 +39,21 @@ main (void)
   if (run_tests (&root) != ATOMIK_SUCCESS)
     __arch_machine_halt ();
 
-  entry = capslot_cspace_resolve (&root, 0xa0100000, 12, NULL);
+  if (root_task_base == NULL)
+  {
+    printf ("atomik: no root task provided, microkernel halted\n");
+    __arch_machine_halt ();
+  }
+  else if ((root_task = elf32_load_tcb (
+                            root_task_base,
+                            root_task_size,
+                            &root)) == NULL)
+  {
+    printf ("atomik: invalid root task\n");
+    __arch_machine_halt ();
+  }
 
-  printf ("Slot resolved: %p\n", entry);
-  
+  printf ("atomik: everything seems fine, TCB at %p\n", root_task);
+
   __arch_machine_halt ();
 }

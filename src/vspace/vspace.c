@@ -26,6 +26,8 @@
 #include <atomik/cap.h>
 #include <atomik/vspace.h>
 
+uintptr_t *curr_vspace; /* If NULL: boot vspace */
+
 /* This is *only* used to update page attributes. Allows to temporarily
  * drop permissions on page without creating extra capabilities.
  */
@@ -91,11 +93,11 @@ atomik_pd_map_pagetable (capslot_t *pd, capslot_t *pt, uintptr_t vaddr)
 
   pt->pt.pd = pd;
 
-  __atomik_capslot_set_page_vaddr (pt, vaddr);
+  __atomik_capslot_set_page_vaddr (pt, PT_START (vaddr));
 
   __arch_map_pagetable (pd->pd.base, /* Remap'd addr */
                         pt->pt.base, /* Remap'd addr */
-                        vaddr,
+                        PT_START (vaddr),
                         __atomik_capslot_to_page_attr (pt));
 
   /* TODO: Write */
@@ -122,11 +124,11 @@ atomik_pt_map_page (capslot_t *pt, capslot_t *page, uintptr_t vaddr)
 
   page->page.pt = pt;
 
-  __atomik_capslot_set_page_vaddr (page, vaddr);
+  __atomik_capslot_set_page_vaddr (page, PAGE_START (vaddr));
 
   __arch_map_page (pt->pt.base,     /* Remap'd addr */
                    page->page.base, /* Not remapped */
-                   vaddr,
+                   PAGE_START (vaddr),
                    __atomik_capslot_to_page_attr (page));
 
   /* TODO: Write */

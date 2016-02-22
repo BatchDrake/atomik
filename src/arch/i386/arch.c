@@ -36,13 +36,13 @@ extern size_t free_size;
 extern void  *remap_start;
 extern size_t remap_size;
 
+extern void  *kernel_virt_start;
+extern void  *kernel_phys_start;
+extern size_t kernel_size;
+
 /* This is initialized in boot.c. Points to a page directory */
 extern struct page_table *page_dir;
 
-/* Symbols provided by linker */
-extern int kernel_start; /* Physical address */
-extern int kernel_end;   /* Physical address */
-extern int text_start;   /* Virtual address */
 
 void
 __arch_machine_halt (void)
@@ -187,10 +187,10 @@ fail:
 size_t
 __arch_get_kernel_layout (void **virt_start, uintptr_t *phys_start)
 {
-  *virt_start = &text_start;
-  *phys_start = (uintptr_t) &kernel_start;
+  *virt_start = kernel_virt_start;
+  *phys_start = kernel_phys_start;
 
-  return (uintptr_t) &kernel_end - (uintptr_t) &kernel_start;
+  return kernel_size;
 }
 
 /* Necessary to access kernel code from userland. Accepts remapped address */
@@ -200,12 +200,12 @@ __arch_map_kernel (void *pd)
   uint32_t *x86_pd      = (uint32_t *) pd;
   uint32_t *x86_boot_pd =
       (uint32_t *) __atomik_phys_to_remap ((uintptr_t) page_dir);
-  size_t    size        =
-      __UNITS ((uintptr_t) &kernel_end - (uintptr_t) &kernel_start,
-               PTRANGE_SIZE);
+  size_t    size;
   unsigned int i;
   unsigned int pde_index;
 
+  /* Map kernel */
+  size = __UNITS (kernel_size, PAGE_SIZE);
   for (i = 0; i < size; ++i)
   {
     pde_index = VADDR_GET_PDE_INDEX (
@@ -218,7 +218,23 @@ __arch_map_kernel (void *pd)
         PAGE_FLAG_WRITABLE |
         PAGE_FLAG_GLOBAL;
   }
+
+  /* Map kernel remap */
+  size = __UNITS (remap_size, PAGE_SIZE);
+  for (i = 0; i < size; ++i)
+  {
+    pde_index = VADDR_GET_PDE_INDEX (
+        (uintptr_t) remap_start +
+        (i << (PAGE_BITS + PTE_BITS)));
+
+    x86_pd[pde_index] =
+        (x86_boot_pd[pde_index] & PAGE_MASK) |
+        PAGE_FLAG_PRESENT |
+        PAGE_FLAG_WRITABLE |
+        PAGE_FLAG_GLOBAL;
+  }
 }
+
 
 /* Switch virtual address space. Accepts remapped address */
 void

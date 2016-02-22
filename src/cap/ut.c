@@ -23,6 +23,7 @@
 #include <atomik/atomik.h>
 #include <atomik/cap.h>
 #include <atomik/vspace.h>
+#include <atomik/tcb.h>
 
 #include <arch.h>
 
@@ -54,13 +55,33 @@ __atomik_objtype_adjust_size_bits (objtype_t type, unsigned int *size_bits)
       *size_bits = ATOMIK_PT_SIZE_BITS;
       break;
 
+    case ATOMIK_OBJTYPE_TCB:
+      *size_bits = ATOMIK_TCB_SIZE_BITS;
+      break;
+
+    case ATOMIK_OBJTYPE_ENDPOINT:
+      *size_bits = 2;
+      break;
+
     default:
       ATOMIK_FAIL (ATOMIK_ERROR_INVALID_TYPE);
   }
 
 fail:
 
-  return -exception;
+  return exception;
+}
+
+static inline size_t
+__atomik_align_watermark (const capslot_t *ut, size_t size_bits)
+{
+  size_t    size_mask = BIT (size_bits) - 1;
+  size_t    watermark = ut->ut.watermark;
+
+  watermark += size_mask;
+  watermark &= ~size_mask;
+
+  return watermark;
 }
 
 /* According to the manual, the retype operation accepts:
@@ -95,6 +116,7 @@ atomik_untyped_retype (
   size_t ut_size;
   size_t obj_size;
   size_t total_size;
+  size_t watermark;
   uintptr_t curr_address;
   int alloc_size_bits;
   int i = 0;
@@ -102,19 +124,16 @@ atomik_untyped_retype (
   if (ut->object_type != ATOMIK_OBJTYPE_UNTYPED)
     ATOMIK_FAIL (ATOMIK_ERROR_INVALID_CAPABILITY);
 
-  if (ut->mdb_child != NULL)
-    ATOMIK_FAIL (ATOMIK_ERROR_REVOKE_FIRST);
-
   if ((exception = __atomik_objtype_adjust_size_bits (type, &size_bits)) !=
       ATOMIK_SUCCESS)
     goto fail;
 
+  watermark  = __atomik_align_watermark (ut, size_bits);
   ut_size    = UT_SIZE (ut);
-  obj_size   = 1 << size_bits;
+  obj_size   = BIT (size_bits);
   total_size = obj_size * count;
 
-  /* Check whether we can create all these objects */
-  if (total_size > ut_size)
+  if (watermark + total_size > ut_size)
     ATOMIK_FAIL (ATOMIK_ERROR_NOT_ENOUGH_MEMORY);
 
   /* Check whether we are trying to retype a high memory
@@ -125,7 +144,7 @@ atomik_untyped_retype (
   if (!__atomik_phys_is_remappable (ut->ut.base, total_size))
     ATOMIK_FAIL (ATOMIK_ERROR_PAGES_ONLY);
 
-  curr_address = (uintptr_t) UT_BASE (ut);
+  curr_address = ((uintptr_t) UT_BASE (ut)) + watermark;
 
   /* Written this way to reuse code. Maybe we should have
    * the loop inside the switch in every case to improve
@@ -207,6 +226,15 @@ atomik_untyped_retype (
 
         break;
 
+      case ATOMIK_OBJTYPE_TCB:
+        destination[i].tcb.base = __atomik_phys_to_remap (curr_address);
+        destination[i].tcb.access = ut->ut.access;
+        break;
+
+      case ATOMIK_OBJTYPE_ENDPOINT:
+        /* TODO: Write me */
+        break;
+
       default:
         ATOMIK_FAIL (ATOMIK_ERROR_INVALID_ARGUMENT);
     }
@@ -224,6 +252,9 @@ atomik_untyped_retype (
     destination[i].mdb_parent = ut;
 
     curr_address += obj_size;
+    watermark    += obj_size;
+
+    ut->ut.watermark = watermark;
   }
 
   /* All set, we can mark the UT object as retyped */

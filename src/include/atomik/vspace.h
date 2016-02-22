@@ -32,7 +32,6 @@
 #define ATOMIK_PAGE_SIZE_BITS PAGE_BITS
 #define ATOMIK_PT_SIZE_BITS   PT_BITS
 #define ATOMIK_PD_SIZE_BITS   PD_BITS
-
 #define ATOMIK_INVALID_ADDR ((uintptr_t) -1)
 
 

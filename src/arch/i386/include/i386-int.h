@@ -21,6 +21,7 @@
 
 #include <alltypes.h>
 #include <util.h>
+#include <i386-irq.h>
 
 #define I386_INT_DIVIDE_BY_ZERO               0
 #define I386_INT_DEBUG                        1
@@ -53,6 +54,9 @@
 
 #define I386_INT_SYSCALL                     0xa0
 #define I386_INT_BUGCHECK                    0xff
+
+#define I386_IRQ_REMAP_START                 PIC_MASTER_INT
+#define I386_IRQ_REMAP_END                   (PIC_MASTER_INT + 16)
 
 #define RAISE_INTERRUPT(x) __asm__ __volatile__ ("int $" STRINGIFY (x));
 
@@ -93,6 +97,7 @@ struct i386_fault_frame
 
 void i386_idt_flush (struct idt_ptr *);
 void i386_init_all_gates (void);
+void i386_idle_task (void);
 
 /* i386 interrupt handlers */
 void isr0  (void);

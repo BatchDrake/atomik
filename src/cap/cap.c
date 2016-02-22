@@ -60,7 +60,7 @@ capslot_cspace_resolve (capslot_t *root, cptr_t addr, unsigned char depth, struc
     bits_resolved = root->cnode.guard_bits + root->cnode.size_bits;
     entry  = addr  >> (CPTR_BITS - bits_resolved);
     guard  = entry >> root->cnode.size_bits;
-    entry &= (1 << root->cnode.size_bits) - 1;
+    entry &= BIT (root->cnode.size_bits) - 1;
 
     if (root->cnode.guard_bits > depth ||
         root->cnode.guard != guard)
@@ -172,6 +172,11 @@ atomik_capslot_delete (capslot_t *slot)
   /* TODO: Why not perform cleanup in user level? */
 
   capslot_clear (slot);
+
+  /* If UT is cleared, reset watermark */
+  if (parent->object_type == ATOMIK_OBJTYPE_UNTYPED &&
+      parent->mdb_child == NULL)
+    parent->ut.watermark = 0;
 
 fail:
   return -exception;

@@ -20,47 +20,97 @@
 #include <string.h>
 
 #include <atomik/atomik.h>
+#include <atomik/tcb.h>
 
 #include <arch.h>
 
 #include <i386-seg.h>
 #include <i386-int.h>
+#include <i386-regs.h>
 
+extern tcb_t *curr_tcb;
 
 /* Note: IDT is paged, no BOOT_SYMBOL declaration needed */
 struct idt_entry idt_entries[256];
 struct idt_ptr   idt_ptr;
+
+static inline void
+i386_handle_kernel_irq (unsigned int irqno, struct i386_fault_frame *frame)
+{
+  /*
+   * These are received by the idle thread. Please note this couldn't
+   * happen otherwise as system calls are executed with interrupts
+   * disabled.
+   */
+
+  /* TODO: Parse IRQ */
+  /* TODO: If next task has changed, discard state (idle thread is always
+   * restarted) and:
+   * 1. Set current to the current TCB
+   * 2. Update the current vspace IF NECESSARY.
+   * 3. Create user switch stack, including useresp, usercs, etc.
+   * 4. Jump to $return_to_user
+   *  */
+}
+
+static inline void
+i386_handle_user_irq (unsigned int irqno)
+{
+  /* TODO: Parse IRQ */
+  /* TODO: If next task has changed, just change the current pointer and
+   * switch vspace.
+   */
+  /* TODO: If next TCB is the idle thread:
+   * DO NOT CHANGE THE vspace. It's not necessary as we have everything
+   * properly mapped in the kernel region.
+   * 1. Set current to the idle thread TCB
+   * 2. Create kernel switch stack. It should only include eip, proper
+   *    cs, eflags, etc.
+   * 3. Jump to $return_to_kernel
+   * */
+}
+
+static inline void
+i386_handle_syscall (unsigned int syscallno)
+{
+
+}
 
 void
 i386_handle_kernel_interrupt (struct i386_fault_frame *frame)
 {
   uint32_t pfla;
 
-  __asm__ __volatile__ ("movl %%cr2, %0" : "=g" (pfla));
-
-  printf ("panic: exception 0x%x at kernel code address 0x%x:0x%x\n",  frame->intno, frame->cs, frame->eip);
-  printf ("  eax=0x%08x ebx=0x%08x ecx=0x%08x edx=0x%08x\n",
-         frame->eax, frame->ebx, frame->ecx, frame->edx);
-  printf ("  ebp=0x%08x esp=0x%08x esi=0x%08x edi=0x%08x\n",
-         frame->ebp, frame->esp, frame->esi, frame->edi);
-  printf ("  eflags=0x%08x error=0x%x pfla=0x%x\n", frame->eflags, frame->error, pfla);
+  if (frame->intno >= I386_IRQ_REMAP_START && frame->intno < I386_IRQ_REMAP_END)
+      i386_handle_user_irq (frame->intno - I386_IRQ_REMAP_START);
+  else
+  {
+    /* Exception */
+    __asm__ __volatile__ ("movl %%cr2, %0" : "=g" (pfla));
   
-  __arch_machine_halt ();
+    printf ("panic: exception 0x%x at kernel code address 0x%x:0x%x\n",  frame->intno, frame->cs, frame->eip);
+    printf ("  eax=0x%08x ebx=0x%08x ecx=0x%08x edx=0x%08x\n",
+           frame->eax, frame->ebx, frame->ecx, frame->edx);
+    printf ("  ebp=0x%08x esp=0x%08x esi=0x%08x edi=0x%08x\n",
+           frame->ebp, frame->esp, frame->esi, frame->edi);
+    printf ("  eflags=0x%08x error=0x%x pfla=0x%x\n", frame->eflags, frame->error, pfla);
+
+    __arch_machine_halt ();
+  }
 }
 
 void
-i386_handle_user_interrupt (void *esp)
+i386_handle_user_interrupt (uint32_t eax, uint32_t intno, uint32_t errno)
 {
-  
-}
-
-void
-i386_io_wait (void)
-{
-  __asm__ __volatile__ ("jmp 1f");
-  __asm__ __volatile__ ("1:");
-  __asm__ __volatile__ ("jmp 1f");
-  __asm__ __volatile__ ("1:");
+  /* IRQs have to be handled first */
+  if (intno >= I386_IRQ_REMAP_START && intno < I386_IRQ_REMAP_END)
+    i386_handle_user_irq (intno - I386_IRQ_REMAP_START);
+  else if (intno == I386_INT_SYSCALL)
+    i386_handle_syscall (eax);
+  else
+  {
+    /* Exceptions */
+  }
 }
 
 void
@@ -72,6 +122,19 @@ i386_idt_set_gate  (uint8_t num, void *base, uint16_t sel, uint8_t flags)
   idt_entries[num].sel     = sel;
   idt_entries[num].always0 = 0;
   idt_entries[num].flags   = flags;
+}
+
+void
+i386_enter_idle (void)
+{
+  __asm__ __volatile__ (
+      ".extern i386_idle_task\n"
+      ".extern return_to_kernel\n"
+      "pushl $0x8\n"            /* Push CS */
+      "pushl $i386_idle_task\n" /* Push EIP */
+      "subl $8, %esp\n"         /* Placeholder */
+      "jmp return_to_kernel"    /* Enter idle task */
+      );
 }
 
 void

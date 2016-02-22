@@ -18,7 +18,9 @@
 
 
 .global i386_idt_flush
-        
+.global i386_idle_task
+.global return_to_kernel
+
 .text
 .align   4
 
@@ -50,13 +52,17 @@
     jmp __intr_common
 .endm
 
+i386_idle_task:
+    hlt
+    jmp i386_idle_task
+
 i386_idt_flush:
     movl 4(%esp), %eax
     lidt (%eax)
     ret
  
 __intr_common:   
-    .extern current    /* Current TCB */
+    .extern curr_tcb    /* Current TCB */
     .extern i386_handle_kernel_interrupt
     .extern i386_handle_user_interrupt
     cld                /* Clear direction flag */
@@ -70,10 +76,12 @@ __intr_common:
     call i386_handle_kernel_interrupt
     addl $4, %esp
     popa
+
+return_to_kernel:
     jmp  isr_done
 
 save_tcb:               /* Interrupt was raised in userland */
-    movl current, %eax
+    movl curr_tcb, %eax
         
     movl %ebx,  4(%eax)
     movl %ecx,  8(%eax)
@@ -109,12 +117,11 @@ save_tcb:               /* Interrupt was raised in userland */
     movl 12(%esp), %ebx /* eip */
     movl %ebx, 36(%eax)
 
-    pushl %esp
     call i386_handle_user_interrupt
-    addl $4, %esp
 
+return_to_user:
     /* Restore context */
-    movl current, %eax
+    movl curr_tcb, %eax
 
     movl 28(%eax), %ebx
     movl %ebx, 24(%esp) /* Useresp */

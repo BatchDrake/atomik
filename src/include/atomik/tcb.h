@@ -23,6 +23,8 @@
 #include <machinedefs.h>
 #include <atomik/cap.h>
 
+#define ATOMIK_TCB_SIZE_BITS  7
+
 enum thread_state
 {
   ATOMIK_THREAD_STATE_INACTIVE,
@@ -42,8 +44,11 @@ struct tcb
 
   thread_state_t state;
   
-  capslot_t cspace;
-  cptr_t    vspace;
+  capslot_t *cspace;
+  capslot_t *vspace;
+  capslot_t *f_ep;
+
+  uint8_t    prio;
 
   struct tcb *wq_next;
   struct tcb *wq_prev;
@@ -53,5 +58,17 @@ struct tcb
 };
 
 typedef struct tcb tcb_t;
+
+CPPASSERT (sizeof (tcb_t) < BIT (ATOMIK_TCB_SIZE_BITS));
+
+int atomik_tcb_configure (
+                      capslot_t *,
+                      capslot_t *,
+                      uint8_t,
+                      capslot_t *,
+                      capslot_t *,
+                      capslot_t *);
+
+capslot_t *elf32_load_tcb (void *, size_t, capslot_t *);
 
 #endif /* _ATOMIK_TCB_H */

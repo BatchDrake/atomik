@@ -23,7 +23,8 @@
 
 struct gdt_entry gdt[GDT_MAX_SEGMENTS];
 
-BOOT_SYMBOL (struct tss tss);
+/* Defined in boot.c, this variable is remapped */
+extern struct tss tss;
 
 static void
 gdt_entry_setup (struct gdt_entry *dest,
@@ -72,6 +73,7 @@ i386_setup_tls (uint32_t base, uint32_t limit)
 void
 i386_set_kernel_stack (uint32_t addr)
 {
+  /* Setting the kernel stack has to be done through this address */
   tss.esp0 = addr;
 }
 

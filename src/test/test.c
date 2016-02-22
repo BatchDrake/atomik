@@ -172,6 +172,9 @@ fail:
   return exception;
 }
 
+extern unsigned int tss;
+
+#include <i386-seg.h>
 static error_t
 test_vspace (struct atomik_test_env *env)
 {
@@ -202,22 +205,20 @@ test_vspace (struct atomik_test_env *env)
 
   for (i = 0; i < kernel_size; i += PAGE_SIZE)
   {
-    phys = capslot_vspace_resolve (destination, kernel_virt_start + i, 0, &exception);
-
-    if (phys == ATOMIK_INVALID_ADDR)
+    if (kernel_virt_start + i != (uintptr_t) &tss)
     {
-      debug (env, "unexpected error resolving address %p: %s\n",
-             kernel_virt_start + i,
-             error_to_string (exception));
-      goto fail;
-    }
+      phys = capslot_vspace_resolve (destination, kernel_virt_start + i, 0, &exception);
 
-    if (phys != kernel_phys_start + i)
-    {
-      debug (env, "translation error: expected %p, got %p instead\n",
-                   kernel_phys_start + i,
-                   phys);
-            goto fail;
+      ATOMIK_TEST_ASSERT (phys != ATOMIK_INVALID_ADDR);
+
+      if (phys != kernel_phys_start + i)
+      {
+        debug (env, "translation error: expected %p, got %p instead\n",
+                     kernel_phys_start + i,
+                     phys);
+
+        ATOMIK_FAIL (ATOMIK_ERROR_TEST_FAILED);
+      }
     }
   }
 
@@ -296,11 +297,11 @@ test_vspace_paging (struct atomik_test_env *env)
   for (i = 0; i < 8; ++i)
   {
     ATOMIK_TEST_ASSERT_SUCCESS (
-        -atomik_pt_map_page (pt, &pages[i], 0x08048000 + (i << PAGE_BITS)));
+        -atomik_pt_map_page (pt, &pages[i], 0x08048000 + PAGE_ADDRESS (i)));
 
     ATOMIK_TEST_ASSERT (
         __atomik_capslot_get_page_vaddr (&pages[i]) ==
-            0x08048000 + (i << PAGE_BITS));
+            0x08048000 + PAGE_ADDRESS (i));
 
     /* Drop privileges */
     ATOMIK_TEST_ASSERT_SUCCESS (-atomik_capslot_drop (&pages[i], ~i));
@@ -311,10 +312,10 @@ test_vspace_paging (struct atomik_test_env *env)
 
   for (i = 0; i < 8; ++i)
   {
-    debug (env, "  0x%08x? ", 0x08048000 + (i << PAGE_BITS));
+    debug (env, "  0x%08x? ", 0x08048000 + PAGE_ADDRESS (i));
 
     phys = capslot_vspace_resolve (pd,
-                                   0x08048000 + (i << PAGE_BITS),
+                                   0x08048000 + PAGE_ADDRESS (i),
                                    0,
                                    &exception);
 
@@ -322,7 +323,7 @@ test_vspace_paging (struct atomik_test_env *env)
 
     if (phys == ATOMIK_INVALID_ADDR)
     {
-      debug (env, "Translation error: cannot translate page %d\n", i);
+      debug (env, "Translation error: cannot translate page #%d\n", i);
       debug (env, "capslot_vspace_resolve failed (%s)\n",
              error_to_string (exception));
 
@@ -348,26 +349,26 @@ test_vspace_paging (struct atomik_test_env *env)
     should_execute = !!(i & ATOMIK_ACCESS_EXEC);
 
     debug (env, "  0x%08x (%c%c%c)? ",
-           0x08048000 + (i << PAGE_BITS),
+           0x08048000 + PAGE_ADDRESS (i),
            should_read ? 'r' : '-',
            should_write ? 'w' : '-',
            should_execute ? 'x' : '-');
 
-    phys = capslot_vspace_resolve (pd, 0x08048000 + (i << PAGE_BITS),
+    phys = capslot_vspace_resolve (pd, 0x08048000 + PAGE_ADDRESS (i),
                                    ATOMIK_ACCESS_READ,
                                    &exception);
     ATOMIK_TEST_ASSERT (exception == ATOMIK_SUCCESS ||
                         exception == ATOMIK_ERROR_ACCESS_DENIED);
     could_read = phys != ATOMIK_INVALID_ADDR;
 
-    phys = capslot_vspace_resolve (pd, 0x08048000 + (i << PAGE_BITS),
+    phys = capslot_vspace_resolve (pd, 0x08048000 + PAGE_ADDRESS (i),
                                    ATOMIK_ACCESS_WRITE,
                                    &exception);
     ATOMIK_TEST_ASSERT (exception == ATOMIK_SUCCESS ||
                         exception == ATOMIK_ERROR_ACCESS_DENIED);
     could_write = phys != ATOMIK_INVALID_ADDR;
 
-    phys = capslot_vspace_resolve (pd, 0x08048000 + (i << PAGE_BITS),
+    phys = capslot_vspace_resolve (pd, 0x08048000 + PAGE_ADDRESS (i),
                                    ATOMIK_ACCESS_EXEC,
                                    &exception);
     ATOMIK_TEST_ASSERT (exception == ATOMIK_SUCCESS ||
@@ -459,7 +460,7 @@ test_vspace_switch (struct atomik_test_env *env)
   for (i = 0; i < 8; ++i)
   {
     ATOMIK_TEST_ASSERT_SUCCESS (
-        -atomik_pt_map_page (pt, &pages[i], 0x08048000 + (i << PAGE_BITS)));
+        -atomik_pt_map_page (pt, &pages[i], 0x08048000 + PAGE_ADDRESS (i)));
 
     /* TODO: this is dangerous */
     sprintf (__atomik_phys_to_remap ((uintptr_t) pages[i].page.base),

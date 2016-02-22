@@ -76,7 +76,12 @@ struct tss
   uint16_t  reserv_iopb;
   
   uint16_t  iopb; 
+
+  uint8_t pad[3992];
 } PACKED;
+
+/* Not true, but necessary to avoid strange failures */
+CPPASSERT(sizeof (struct tss) == PAGE_SIZE);
 
 struct gdt_entry
 {

@@ -24,6 +24,7 @@
 #include <i386-page.h>
 #include <i386-regs.h>
 #include <i386-vga.h>
+#include <i386-seg.h>
 
 #include <multiboot.h>
 
@@ -34,9 +35,18 @@ void  *free_start;
 size_t free_size;
 void  *remap_start;
 size_t remap_size;
+void  *kernel_virt_start;
+void  *kernel_phys_start;
+size_t kernel_size;
+
 struct page_table *page_dir;
 
 char kernel_stack[4 * PAGE_SIZE] __attribute__ ((aligned (PAGE_SIZE)));
+
+/* This is a dirty trick: I will remap __tss to the tss address. Downside:
+ * The kernel is 4K bigger. So what?
+ */
+struct tss tss __attribute__ ((aligned ((PAGE_SIZE))));
 
 /* Symbols provided by linker */
 extern int kernel_start; /* Physical address */
@@ -63,12 +73,14 @@ BOOT_SYMBOL (static uint32_t __free_start);
 BOOT_SYMBOL (static uint32_t __free_size);
 BOOT_SYMBOL (static uint32_t __remap_start);
 BOOT_SYMBOL (static uint32_t __remap_size);
+BOOT_SYMBOL (static uint32_t __kernel_size);
 
 BOOT_SYMBOL (static void *initrd_phys) = NULL;
 BOOT_SYMBOL (static void *initrd_start) = NULL;
 BOOT_SYMBOL (static uint32_t initrd_size) = 0;
 
 BOOT_SYMBOL (char bootstack[4 * PAGE_SIZE]); /* Boot stack, as used by _start */
+BOOT_SYMBOL (static struct tss __tss __attribute__ ((aligned ((PAGE_SIZE)))));
 BOOT_SYMBOL (static char cmdline_copy[128]);
 BOOT_SYMBOL (static struct multiboot_info *multiboot_info);
 
@@ -314,7 +326,10 @@ boot_setup_vregion (uint32_t page_phys_start, uint32_t page_virt_start, uint32_t
   uint32_t page_phys, page_virt;
   struct page_table *current;
 
-  boot_print_mmap (page_phys_start << 12, page_virt_start << 12, page_count);
+  boot_print_mmap (
+      PAGE_ADDRESS (page_phys_start),
+      PAGE_ADDRESS (page_virt_start),
+      page_count);
   
   for (j = 0; j < page_count; ++j)
   {
@@ -327,9 +342,9 @@ boot_setup_vregion (uint32_t page_phys_start, uint32_t page_virt_start, uint32_t
       boot_page_dir->entries[page_virt >> 10] = (uint32_t) current | PAGE_FLAG_PRESENT | PAGE_FLAG_WRITABLE;
     }
     else
-      current = (struct page_table *) (boot_page_dir->entries[page_virt >> 10] & PAGE_MASK);
+      current = (struct page_table *) PAGE_START (boot_page_dir->entries[page_virt >> 10]);
     
-    current->entries[page_virt & 1023] = (page_phys << 12) | PAGE_FLAG_PRESENT | PAGE_FLAG_WRITABLE;
+    current->entries[page_virt & 1023] = PAGE_ADDRESS (page_phys) | PAGE_FLAG_PRESENT | PAGE_FLAG_WRITABLE;
   }
 }
 
@@ -381,7 +396,7 @@ boot_prepare_paging_early (void)
   mmap_count = mbi->mmap_length / sizeof (memory_map_t);
 
   /* Map video memory */
-  boot_setup_vregion ((uint32_t) VIDEO_BASE >> 12, (uint32_t) VIDEO_BASE >> 12, 1);
+  boot_setup_vregion (PAGE_NUMBER (VIDEO_BASE), PAGE_NUMBER (VIDEO_BASE), 1);
 
   /* Remap initrd to upperhalf aswell (if any) */
   if (initrd_size > 0)
@@ -395,9 +410,10 @@ boot_prepare_paging_early (void)
 
     page_count = __UNITS (mmap_info->length_low, PAGE_SIZE);
     
-    page_phys_start = mmap_info->base_addr_low >> 12;
+    page_phys_start = PAGE_NUMBER (mmap_info->base_addr_low);
     page_virt_start = page_phys_start;
 
+    /* Find vregion where free_mem is */
     if (mmap_info->base_addr_low <= free_mem &&
         free_mem < (mmap_info->base_addr_low + mmap_info->length_low))
       highest_addr = mmap_info->base_addr_low + mmap_info->length_low;
@@ -417,8 +433,21 @@ boot_prepare_paging_early (void)
     highest_kernel_remap_addr = KERNEL_BASE + KERNEL_REMAP_MAX;
   
   /* Map microkernel to upperhalf */
-  boot_setup_vregion ((uint32_t) &kernel_start >> 12, (uint32_t) &text_start >> 12, __UNITS (highest_kernel_remap_addr - (uint32_t) &kernel_start, PAGE_SIZE));
+  __kernel_size = __ALIGN (
+                      highest_kernel_remap_addr - (uint32_t) &kernel_start,
+                      PAGE_SIZE);
 
+  boot_setup_vregion (
+      PAGE_NUMBER ((uint32_t) &kernel_start),
+      PAGE_NUMBER ((uint32_t) &text_start),
+      __UNITS (__kernel_size, PAGE_SIZE));
+
+
+  /* Overwrite TSS map with the address of __tss */
+  boot_setup_vregion (
+      PAGE_NUMBER ((uint32_t) &__tss),
+      PAGE_NUMBER ((uint32_t) &tss),
+      1);
   
   __free_start  = (uint32_t) &page_table_list[page_table_count];
   __free_size   = highest_addr - __free_start;
@@ -491,18 +520,29 @@ boot_entry (void)
   remap_start = (void *) __remap_start;
   remap_size  = (size_t) __remap_size;
 
+  kernel_phys_start = (void *) &kernel_start;
+  kernel_virt_start = (void *) &text_start;
+  kernel_size       = (size_t) __kernel_size;
+
   boot_screen_clear (0x07);
   
   /* Make this pointer available to the remapped kernel */
   page_dir = boot_page_dir;
+
+  /* Set the kernel stack in TSS */
+  i386_set_kernel_stack ((uint32_t) &kernel_stack + sizeof (kernel_stack) - 4);
 
   /* Perform stack switch & call main */
   __asm__ __volatile__ (
       ".extern main\n"
       "leal (%0), %%esp\n"
       "addl %%eax, %%esp\n"
+      "pushl %%ebx\n"
+      "pushl %%ecx\n"
       "call main\n"
       : :
         "m" (kernel_stack),
-        "a" (sizeof (kernel_stack) - 4));
+        "a" (sizeof (kernel_stack) - 4),
+        "b" (initrd_size),
+        "c" (initrd_start));
 }
