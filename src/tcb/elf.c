@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <atomik/atomik.h>
 #include <atomik/cap.h>
@@ -29,10 +30,10 @@
 #define ELF32_TASK_TCB_STACK_PTS   1
 
 #define ELF32_MSG(fmt, arg...) printf ("elf32: " fmt "\n", ##arg)
-#define ELF32_THROW(fmt, arg...) \
-  {                              \
-    ELF32_MSG(fmt, ##arg);     \
-    goto fail;                   \
+#define ELF32_THROW(fmt, arg...)             \
+  {                                          \
+    ELF32_MSG("exception: " fmt, ##arg);     \
+    goto fail;                               \
   }
 
 struct elf32_handle
@@ -244,7 +245,7 @@ capslot_t *
 elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
 {
   elf32_handle_t handle;
-  Elf32_Phdr *codeseg, *dataseg;
+  Elf32_Phdr *codeseg, *dataseg, *seg;
   capslot_t *ut;
   capslot_t *tcb_desc_cnode;
   capslot_t *page_caps;
@@ -379,7 +380,8 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
   while (BIT (fittest_bits) < allocsize)
       ++fittest_bits;
 
-  ELF32_MSG ("Allocate %d bytes for objects", BIT (fittest_bits));
+  ELF32_MSG ("Allocate %d bytes for objects (%d required)",
+             BIT (fittest_bits), allocsize);
 
   /* Allocate for pages, TCBs, etc */
   if ((ut = elf32_find_small_ut (croot, fittest_bits)) == NULL)
@@ -441,7 +443,7 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
   /* Map code & data segments */
   for (i = 0; i < pages; ++i)
   {
-    vaddr = first_page + (i << PAGE_BITS);
+    vaddr = first_page + PAGE_ADDRESS (i);
 
     if (curr_pt == NULL)
     {
@@ -463,14 +465,39 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
 
     if (vaddr >= codeseg->p_vaddr &&
         vaddr < codeseg->p_vaddr + codeseg->p_memsz)
+    {
       attrib = ATOMIK_ACCESS_READ | ATOMIK_ACCESS_EXEC;
-    else
+      seg    = codeseg;
+    }
+    else if (vaddr >= dataseg->p_vaddr &&
+        vaddr < dataseg->p_vaddr + dataseg->p_memsz)
+    {
       attrib = ATOMIK_ACCESS_READ | ATOMIK_ACCESS_WRITE;
+      seg    = dataseg;
+    }
+    else
+      seg = NULL;
 
     if ((retval = atomik_page_remap (&page_caps[i], attrib)) < 0)
       ELF32_THROW (
           "Adjust page attributes failed: %s",
           error_to_string (-retval));
+
+    /*
+     * Copy data. We can do this because we still have a 1:1 mapping of
+     * physical memory.
+     */
+
+    if (seg != NULL &&
+        vaddr >= seg->p_vaddr &&
+        vaddr < seg->p_vaddr + seg->p_filesz)
+      memcpy (
+          page_caps[i].page.base,
+          (const uint8_t *) buf + seg->p_offset + PAGE_ADDRESS (i),
+          PAGE_SIZE);
+    else
+      memset (page_caps[i].page.base, 0, PAGE_SIZE);
+
   }
 
   ELF32_MSG ("Mapping stack segments...");
@@ -513,6 +540,7 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
   }
 
   ELF32_MSG ("Configuring TCB...");
+
   /* Configure TCB */
   if ((retval = atomik_tcb_configure (
                     tcb_cap,
