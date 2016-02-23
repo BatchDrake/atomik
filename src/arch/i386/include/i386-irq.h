@@ -80,6 +80,9 @@ __irq_mask (uint8_t irq)
   outportb (0x21, mask);
 }
 
+void pic_end_of_interrupt (uint8_t);
+void i386_enter_multitasking (void);
+void i386_handle_irq (unsigned int);
 void i386_early_irq_init (void);
 
 #endif /* _ARCH_I386_IRQ_H */

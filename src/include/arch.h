@@ -21,6 +21,8 @@
 
 #include <alltypes.h>
 
+struct tcb;
+
 /* Send a character to the debug device (usually the serial port) */
 void __arch_debug_putchar (uint8_t);
 
@@ -57,7 +59,13 @@ void __arch_invalidate_page (void *);
 /* Switch vspace */
 void __arch_switch_vspace (void *);
 
+/* Initialize idle task */
+void __arch_initialize_idle (struct tcb *);
+
 /* Initialize hardware (generic way) */
 void machine_init (void);
+
+/* Start scheduling tasks */
+void enter_multitasking (void);
 
 #endif /* _ARCH_H */

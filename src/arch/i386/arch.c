@@ -19,6 +19,7 @@
 #include <atomik/atomik.h>
 #include <atomik/cap.h>
 #include <atomik/vspace.h>
+#include <atomik/tcb.h>
 
 #include <arch.h>
 
@@ -29,6 +30,7 @@
 #include <i386-regs.h>
 #include <i386-page.h>
 #include <i386-layout.h>
+#include <i386-timer.h>
 
 extern void  *free_start;
 extern size_t free_size;
@@ -188,7 +190,7 @@ size_t
 __arch_get_kernel_layout (void **virt_start, uintptr_t *phys_start)
 {
   *virt_start = kernel_virt_start;
-  *phys_start = kernel_phys_start;
+  *phys_start = (uintptr_t) kernel_phys_start;
 
   return kernel_size;
 }
@@ -252,6 +254,14 @@ __arch_switch_vspace (void *pd)
     SET_REGISTER ("%cr3", page_dir);
 }
 
+/* Initialize TCB registers */
+void
+__arch_initialize_idle (struct tcb *tcb)
+{
+  tcb->regs.r[I386_TCB_REG_EIP] = (uintptr_t) &i386_idle_task;
+  tcb->regs.r[I386_TCB_REG_EFLAGS] = EFLAGS_INTERRUPT;
+}
+
 void
 machine_init (void)
 {
@@ -259,4 +269,12 @@ machine_init (void)
   i386_seg_init ();
   i386_init_all_gates ();
   i386_early_irq_init ();
+  i386_setup_timer_freq (HZ);
+  i386_timer_enable ();
+}
+
+void
+enter_multitasking (void)
+{
+  i386_enter_multitasking ();
 }

@@ -18,6 +18,7 @@ libi386_a_SOURCES = \
         seg.c \
         seg-i386.S \
 	serial.c \
+	timer.c \
 	include/i386-io.h \
         include/i386-int.h \
         include/i386-irq.h \

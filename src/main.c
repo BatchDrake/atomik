@@ -55,5 +55,5 @@ main (void *root_task_base, size_t root_task_size)
 
   printf ("atomik: everything seems fine, TCB at %p\n", root_task);
 
-  __arch_machine_halt ();
+  enter_multitasking ();
 }

@@ -27,48 +27,11 @@
 #include <i386-seg.h>
 #include <i386-int.h>
 #include <i386-regs.h>
-
-extern tcb_t *curr_tcb;
+#include <i386-irq.h>
 
 /* Note: IDT is paged, no BOOT_SYMBOL declaration needed */
 struct idt_entry idt_entries[256];
 struct idt_ptr   idt_ptr;
-
-static inline void
-i386_handle_kernel_irq (unsigned int irqno, struct i386_fault_frame *frame)
-{
-  /*
-   * These are received by the idle thread. Please note this couldn't
-   * happen otherwise as system calls are executed with interrupts
-   * disabled.
-   */
-
-  /* TODO: Parse IRQ */
-  /* TODO: If next task has changed, discard state (idle thread is always
-   * restarted) and:
-   * 1. Set current to the current TCB
-   * 2. Update the current vspace IF NECESSARY.
-   * 3. Create user switch stack, including useresp, usercs, etc.
-   * 4. Jump to $return_to_user
-   *  */
-}
-
-static inline void
-i386_handle_user_irq (unsigned int irqno)
-{
-  /* TODO: Parse IRQ */
-  /* TODO: If next task has changed, just change the current pointer and
-   * switch vspace.
-   */
-  /* TODO: If next TCB is the idle thread:
-   * DO NOT CHANGE THE vspace. It's not necessary as we have everything
-   * properly mapped in the kernel region.
-   * 1. Set current to the idle thread TCB
-   * 2. Create kernel switch stack. It should only include eip, proper
-   *    cs, eflags, etc.
-   * 3. Jump to $return_to_kernel
-   * */
-}
 
 static inline void
 i386_handle_syscall (unsigned int syscallno)
@@ -82,7 +45,7 @@ i386_handle_kernel_interrupt (struct i386_fault_frame *frame)
   uint32_t pfla;
 
   if (frame->intno >= I386_IRQ_REMAP_START && frame->intno < I386_IRQ_REMAP_END)
-      i386_handle_user_irq (frame->intno - I386_IRQ_REMAP_START);
+      i386_handle_irq (frame->intno - I386_IRQ_REMAP_START);
   else
   {
     /* Exception */
@@ -97,6 +60,14 @@ i386_handle_kernel_interrupt (struct i386_fault_frame *frame)
 
     __arch_machine_halt ();
   }
+
+  /* TODO: If next task has changed, discard state (idle thread is always
+   * restarted) and:
+   * 1. Set current to the current TCB
+   * 2. Update the current vspace IF NECESSARY.
+   * 3. Create user switch stack, including useresp, usercs, etc.
+   * 4. Jump to $return_to_user
+   *  */
 }
 
 void
@@ -104,13 +75,25 @@ i386_handle_user_interrupt (uint32_t eax, uint32_t intno, uint32_t errno)
 {
   /* IRQs have to be handled first */
   if (intno >= I386_IRQ_REMAP_START && intno < I386_IRQ_REMAP_END)
-    i386_handle_user_irq (intno - I386_IRQ_REMAP_START);
+    i386_handle_irq (intno - I386_IRQ_REMAP_START);
   else if (intno == I386_INT_SYSCALL)
     i386_handle_syscall (eax);
   else
   {
     /* Exceptions */
   }
+
+  /* TODO: If next task has changed, just change the current pointer and
+   * switch vspace.
+   */
+  /* TODO: If next TCB is the idle thread:
+   * DO NOT CHANGE THE vspace. It's not necessary as we have everything
+   * properly mapped in the kernel region.
+   * 1. Set current to the idle thread TCB
+   * 2. Create kernel switch stack. It should only include eip, proper
+   *    cs, eflags, etc.
+   * 3. Jump to $return_to_kernel
+   * */
 }
 
 void
@@ -643,3 +626,4 @@ i386_init_all_gates (void)
     
   i386_idt_flush (&idt_ptr);
 }
+

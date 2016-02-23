@@ -28,7 +28,7 @@ inportb (uint16_t port)
   return rv;
 }
 
-/* outportb: EnvÃÂ­a un byte DATA al puerto de software PORT */
+/* outportb: Envía un byte DATA al puerto de software PORT */
 static inline void
 outportb (uint16_t port, uint8_t data)
 {

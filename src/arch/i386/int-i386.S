@@ -19,6 +19,7 @@
 
 .global i386_idt_flush
 .global i386_idle_task
+.global i386_enter_multitasking
 .global return_to_kernel
 
 .text
@@ -52,6 +53,8 @@
     jmp __intr_common
 .endm
 
+i386_enter_multitasking:
+    sti /* Enable interrupts */
 i386_idle_task:
     hlt
     jmp i386_idle_task

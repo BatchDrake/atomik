@@ -1,8 +1,6 @@
 /*
- *    machinedefs.h: Architecture-specific parameters needed by the
- *    machine-independent code of the microkernel.
- *
- *    Copyright (C) 2014  Gonzalo J. Carracedo
+ *    int.c: Interrupt handling
+ *    Copyright (C) 2016  Gonzalo J. Carracedo
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -18,25 +16,29 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#ifndef _ARCH_MACHINEDEFS_H
-#define _ARCH_MACHINEDEFS_H
+#include <atomik/atomik.h>
 
-#include <i386-tcb.h>
-#include <i386-layout.h>
+#include <i386-io.h>
+#include <i386-irq.h>
+#include <i386-timer.h>
 
-#define HZ 100
+void
+i386_setup_timer_freq (unsigned int freq)
+{
+  uint32_t timer_count;
 
-#define PHYS_ADDR_BITS 32
-#define VIRT_ADDR_BITS 32
+  timer_count = TIMER_BASE_FREQ / freq;
 
-#define PAGE_BITS      12
-#define PT_BITS        PAGE_BITS
-#define PD_BITS        PAGE_BITS
+  outportb (TIMER_PORT_COMMAND, TIMER_MODE_3 |
+                                TIMER_ACCESS_LOHI |
+                                TIMER_CHANNEL (0));
 
-#define PTE_BITS       10
-#define PDE_BITS       10
+  outportb (TIMER_PORT_CHANNEL (0), timer_count & 0xff);
+  outportb (TIMER_PORT_CHANNEL (0), timer_count >> 8);
+}
 
-#define PREFERED_STACK_SIZE (1 << (PAGE_BITS + 4))
-#define PREFERED_STACK_BASE (KERNEL_BASE - PREFERED_STACK_SIZE)
-
-#endif /* _ARCH_MACHINEDEFS_H */
+void
+i386_timer_enable (void)
+{
+  __irq_unmask (IRQ_TIMER);
+}

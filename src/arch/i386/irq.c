@@ -16,8 +16,28 @@
  *    along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
  
+#include <stdio.h>
+
+#include <atomik/atomik.h>
+
 #include <i386-irq.h>
 #include <i386-regs.h>
+
+void
+i386_handle_irq (unsigned int irqno)
+{
+  outportb (PIC1_COMMAND, PIC_EOI);
+
+  /*
+   * These are received by the idle thread. Please note this couldn't
+   * happen otherwise as system calls are executed with interrupts
+   * disabled.
+   */
+
+  /* TODO: Parse IRQ */
+
+  printf ("IRQ #%d\n", irqno);
+}
 
 /* io_wait: ensure PIC chip updates its state. This
    is not necessary nowadays (also, we lose several
@@ -63,8 +83,8 @@ pic_remap_irq_vector (int offset1, int offset2)
   outportb (PIC2_DATA, a2);
 }
 
-static void
-pic_end_of_interrupt (unsigned char irq)
+void
+pic_end_of_interrupt (uint8_t irq)
 {
   if (irq >= 8)
     outportb (PIC2_COMMAND, PIC_EOI);

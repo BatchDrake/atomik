@@ -21,6 +21,22 @@
 
 #define I386_TCB_REG_NUM 13
 
+enum i386_reg_id
+{
+  I386_TCB_REG_EAX,
+  I386_TCB_REG_EBX,
+  I386_TCB_REG_ECX,
+  I386_TCB_REG_EDX,
+  I386_TCB_REG_ESI,
+  I386_TCB_REG_EDI,
+  I386_TCB_REG_EBP,
+  I386_TCB_REG_ESP,
+  I386_TCB_REG_EFLAGS,
+  I386_TCB_REG_EIP
+};
+
+typedef enum i386_reg_id i386_reg_id_t;
+
 struct i386_tcb_regs
 {
   uint32_t r[I386_TCB_REG_NUM];
