@@ -33,10 +33,17 @@
 struct idt_entry idt_entries[256];
 struct idt_ptr   idt_ptr;
 
+extern tcb_t idle_tcb;
+extern tcb_t *curr_tcb;
+extern uintptr_t *curr_vspace; /* If NULL: boot vspace */
+
 static inline void
 i386_handle_syscall (unsigned int syscallno)
 {
+  printf ("Thread made a system call! (syscall %d)\n", syscallno);
+  printf ("Nothing left to do. Halting.\n");
 
+  __arch_machine_halt ();
 }
 
 void
@@ -63,16 +70,39 @@ i386_handle_kernel_interrupt (struct i386_fault_frame *frame)
 
   /* TODO: If next task has changed, discard state (idle thread is always
    * restarted) and:
-   * 1. Set current to the current TCB
-   * 2. Update the current vspace IF NECESSARY.
-   * 3. Create user switch stack, including useresp, usercs, etc.
-   * 4. Jump to $return_to_user
+   * 1. Update the current vspace IF NECESSARY.
+   * 2. Allocate stack space for context switch.
+   * 3. Jump to $return_to_user
    *  */
+
+  /* We are moving to something different */
+  if (curr_tcb != &idle_tcb)
+  {
+    if (curr_vspace != curr_tcb->vspace->pd.base)
+    {
+      /* Switch current vspace */
+      curr_vspace = curr_tcb->vspace->pd.base;
+      __arch_switch_vspace (curr_vspace);
+    }
+
+    /*
+     * We need to allocate 32 bytes of stack space to perform switch.
+     */
+
+    __asm__ __volatile__ (
+        ".extern return_to_user\n"
+        "subl $32, %esp\n"
+        "jmp return_to_user"
+        );
+  }
 }
 
 void
 i386_handle_user_interrupt (uint32_t eax, uint32_t intno, uint32_t errno)
 {
+  uint32_t pfla;
+  __asm__ __volatile__ ("movl %%cr2, %0" : "=g" (pfla));
+
   /* IRQs have to be handled first */
   if (intno >= I386_IRQ_REMAP_START && intno < I386_IRQ_REMAP_END)
     i386_handle_irq (intno - I386_IRQ_REMAP_START);
@@ -81,6 +111,10 @@ i386_handle_user_interrupt (uint32_t eax, uint32_t intno, uint32_t errno)
   else
   {
     /* Exceptions */
+    printf ("Task exception %d! (eip=%p, pfla=%p)\n",
+            intno,
+            curr_tcb->regs.r[I386_TCB_REG_EIP],
+            pfla);
   }
 
   /* TODO: If next task has changed, just change the current pointer and
@@ -92,8 +126,19 @@ i386_handle_user_interrupt (uint32_t eax, uint32_t intno, uint32_t errno)
    * 1. Set current to the idle thread TCB
    * 2. Create kernel switch stack. It should only include eip, proper
    *    cs, eflags, etc.
-   * 3. Jump to $return_to_kernel
+   * 3. iret
    * */
+
+  /* Getting back to the idle thread is a bit tricky: */
+  if (curr_tcb == &idle_tcb)
+  {
+    __asm__ __volatile__ (".extern i386_idle_task\n"
+                          "pushl $0x200\n" /* Interrupt enable */
+                          "pushl $0x8\n"   /* Code segment */
+                          "pushl $i386_idle_task\n" /* EIP */
+                          "iret\n"         /* Bye, bye, user */
+                          );
+  }
 }
 
 void

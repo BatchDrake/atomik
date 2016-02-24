@@ -55,5 +55,9 @@ main (void *root_task_base, size_t root_task_size)
 
   printf ("atomik: everything seems fine, TCB at %p\n", root_task);
 
+  sched_init ();
+
+  atomik_sched_push_tcb (root_task);
+
   enter_multitasking ();
 }

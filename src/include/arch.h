@@ -62,6 +62,9 @@ void __arch_switch_vspace (void *);
 /* Initialize idle task */
 void __arch_initialize_idle (struct tcb *);
 
+/* Initialize any TCB */
+void __arch_init_tcb (struct tcb *);
+
 /* Initialize hardware (generic way) */
 void machine_init (void);
 

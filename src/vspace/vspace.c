@@ -45,7 +45,8 @@ atomik_page_remap (capslot_t *page, uint8_t attr)
   __arch_map_page (page->page.pt->pt.base,
                    page->page.base,
                    __atomik_capslot_get_page_vaddr (page),
-                   __atomik_access_to_page_attr (page->page.access) & attr);
+                   (__atomik_access_to_page_attr (page->page.access) & attr) |
+                     ATOMIK_PAGEATTR_PRESENT);
 
   return 0;
 
@@ -168,13 +169,18 @@ capslot_vspace_switch (capslot_t *pd)
   error_t exception = ATOMIK_SUCCESS;
 
   if (pd == NULL)
+  {
+    curr_vspace = NULL;
     __arch_switch_vspace (NULL);
+  }
   else
   {
     if (pd->object_type != ATOMIK_OBJTYPE_PD)
       ATOMIK_FAIL (ATOMIK_ERROR_INVALID_CAPABILITY);
 
     __arch_switch_vspace (pd->pd.base);
+
+    curr_vspace = pd->pd.base;
   }
 
 fail:

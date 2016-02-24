@@ -19,6 +19,7 @@
 #include <stdio.h>
 
 #include <atomik/atomik.h>
+#include <atomik/tcb.h>
 
 #include <i386-irq.h>
 #include <i386-regs.h>
@@ -34,9 +35,8 @@ i386_handle_irq (unsigned int irqno)
    * disabled.
    */
 
-  /* TODO: Parse IRQ */
-
-  printf ("IRQ #%d\n", irqno);
+  if (irqno == IRQ_TIMER)
+    atomik_sched_schedule ();
 }
 
 /* io_wait: ensure PIC chip updates its state. This

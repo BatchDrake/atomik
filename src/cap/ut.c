@@ -229,6 +229,9 @@ atomik_untyped_retype (
       case ATOMIK_OBJTYPE_TCB:
         destination[i].tcb.base = __atomik_phys_to_remap (curr_address);
         destination[i].tcb.access = ut->ut.access;
+
+        __arch_init_tcb (destination[i].tcb.base);
+
         break;
 
       case ATOMIK_OBJTYPE_ENDPOINT:

@@ -28,6 +28,7 @@
 #include <i386-irq.h>
 #include <i386-seg.h>
 #include <i386-regs.h>
+#include <i386-tcb.h>
 #include <i386-page.h>
 #include <i386-layout.h>
 #include <i386-timer.h>
@@ -154,6 +155,12 @@ fail:
   return (uintptr_t *) -1;
 }
 
+void
+__arch_init_tcb (struct tcb *tcb)
+{
+  tcb->regs.r[I386_TCB_REG_EFLAGS] = EFLAGS_INTERRUPT;
+}
+
 /* This always return a physical address */
 uintptr_t
 __arch_resolve_page (void *pd, uintptr_t vaddr, uint8_t access, error_t *err)
@@ -207,7 +214,7 @@ __arch_map_kernel (void *pd)
   unsigned int pde_index;
 
   /* Map kernel */
-  size = __UNITS (kernel_size, PAGE_SIZE);
+  size = __UNITS (kernel_size, PTRANGE_SIZE);
   for (i = 0; i < size; ++i)
   {
     pde_index = VADDR_GET_PDE_INDEX (
@@ -222,7 +229,7 @@ __arch_map_kernel (void *pd)
   }
 
   /* Map kernel remap */
-  size = __UNITS (remap_size, PAGE_SIZE);
+  size = __UNITS (remap_size, PTRANGE_SIZE);
   for (i = 0; i < size; ++i)
   {
     pde_index = VADDR_GET_PDE_INDEX (

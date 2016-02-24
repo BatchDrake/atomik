@@ -463,13 +463,13 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
     if ((retval = atomik_pt_map_page (curr_pt, &page_caps[i], vaddr)) < 0)
       ELF32_THROW ("Map page failed: %s", error_to_string (-retval));
 
-    if (vaddr >= codeseg->p_vaddr &&
+    if (vaddr >= PAGE_START (codeseg->p_vaddr) &&
         vaddr < codeseg->p_vaddr + codeseg->p_memsz)
     {
       attrib = ATOMIK_ACCESS_READ | ATOMIK_ACCESS_EXEC;
       seg    = codeseg;
     }
-    else if (vaddr >= dataseg->p_vaddr &&
+    else if (vaddr >= PAGE_START (dataseg->p_vaddr) &&
         vaddr < dataseg->p_vaddr + dataseg->p_memsz)
     {
       attrib = ATOMIK_ACCESS_READ | ATOMIK_ACCESS_WRITE;
@@ -482,18 +482,17 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
       ELF32_THROW (
           "Adjust page attributes failed: %s",
           error_to_string (-retval));
-
     /*
      * Copy data. We can do this because we still have a 1:1 mapping of
      * physical memory.
      */
 
     if (seg != NULL &&
-        vaddr >= seg->p_vaddr &&
+        vaddr >= PAGE_START (seg->p_vaddr) &&
         vaddr < seg->p_vaddr + seg->p_filesz)
       memcpy (
-          page_caps[i].page.base,
-          (const uint8_t *) buf + seg->p_offset + PAGE_ADDRESS (i),
+          (uint8_t *) page_caps[i].page.base,
+          (const uint8_t *) buf + PAGE_START (seg->p_offset) + PAGE_ADDRESS (i),
           PAGE_SIZE);
     else
       memset (page_caps[i].page.base, 0, PAGE_SIZE);
@@ -540,6 +539,10 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
   }
 
   ELF32_MSG ("Configuring TCB...");
+
+  tcb_cap->tcb.base->regs.r[I386_TCB_REG_EIP] = handle.ehdr->e_entry;
+  tcb_cap->tcb.base->regs.r[I386_TCB_REG_ESP] =
+      PREFERED_STACK_BASE + PREFERED_STACK_SIZE - 4096 - 4;
 
   /* Configure TCB */
   if ((retval = atomik_tcb_configure (

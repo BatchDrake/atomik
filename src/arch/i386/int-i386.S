@@ -21,6 +21,7 @@
 .global i386_idle_task
 .global i386_enter_multitasking
 .global return_to_kernel
+.global return_to_user
 
 .text
 .align   4
@@ -70,7 +71,7 @@ __intr_common:
     .extern i386_handle_user_interrupt
     cld                /* Clear direction flag */
     pushl %eax
-    mov %cs, %ax
+    movw 16(%esp), %ax /* Move CS to AX */
     test $3, %ax       /* Do we come from userland? */
     jnz save_tcb
     popl %eax          /* Nope, this is a kernel fault */
@@ -84,6 +85,12 @@ return_to_kernel:
     jmp  isr_done
 
 save_tcb:               /* Interrupt was raised in userland */
+    movw $0x10, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
+
     movl curr_tcb, %eax
         
     movl %ebx,  4(%eax)
@@ -126,26 +133,44 @@ return_to_user:
     /* Restore context */
     movl curr_tcb, %eax
 
+    movl $0x23, %ebx
+    movl %ebx, 28(%esp) /* Userss */
+
     movl 28(%eax), %ebx
     movl %ebx, 24(%esp) /* Useresp */
     
     movl 32(%eax), %ebx
     movl %ebx, 20(%esp) /* eflags */
 
+    movl $0x1b, %ebx
+    movl %ebx, 16(%esp) /* CS */
+
     movl 36(%eax), %ebx
     movl %ebx, 12(%esp) /* eip */
 
+    /* Restore saved registers */
     movl 4(%eax),  %ebx
     movl 8(%eax),  %ecx
     movl 12(%eax), %edx
     movl 16(%eax), %esi
-    movl 20(%eax), %eax
+    movl 20(%eax), %edi
     movl 24(%eax), %ebp
 
-    movl (%eax),   %eax /* This must be the last one */
-        
+    movl (%eax),   %eax /* %eax must be the last one */
+
+    pushl %eax
+    movw $0x23, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
+    popl %eax
+
+    addl $4, %esp       /* Also, it's only saved when returning to user */
+
+
 isr_done:
-    addl $8, %esp
+    addl $8, %esp       /* Skip intno and error */
     iret
 
 ISR_NOERRCODE 0

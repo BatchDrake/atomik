@@ -72,9 +72,9 @@ int atomik_tcb_configure (
 
 capslot_t *elf32_load_tcb (void *, size_t, capslot_t *);
 
-int atomik_sched_push_tcb (tcb_t *);
+int atomik_sched_push_tcb (capslot_t *);
 
-int atomik_sched_pull_tcb (tcb_t *);
+int atomik_sched_pull_tcb (capslot_t *);
 
 void atomik_sched_schedule (void);
 

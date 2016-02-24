@@ -45,7 +45,7 @@ static uint8_t  max_prio;
 static inline int
 sched_is_idle (void)
 {
-  return curr_tcb != &idle_tcb;
+  return curr_tcb == &idle_tcb;
 }
 
 static inline int
@@ -174,9 +174,15 @@ sched_queue_pull_tcb (uint8_t n, tcb_t *tcb)
 
 
 int
-atomik_sched_push_tcb (tcb_t *tcb)
+atomik_sched_push_tcb (capslot_t *cap)
 {
   error_t exception = ATOMIK_SUCCESS;
+  tcb_t *tcb;
+
+  if (cap->object_type != ATOMIK_OBJTYPE_TCB)
+    ATOMIK_FAIL (ATOMIK_ERROR_INVALID_CAPABILITY);
+
+  tcb = cap->tcb.base;
 
   if (tcb->sched_next != NULL)
     ATOMIK_FAIL (ATOMIK_ERROR_PULL_FIRST);
@@ -188,9 +194,15 @@ fail:
 }
 
 int
-atomik_sched_pull_tcb (tcb_t *tcb)
+atomik_sched_pull_tcb (capslot_t *cap)
 {
   error_t exception = ATOMIK_SUCCESS;
+  tcb_t *tcb;
+
+  if (cap->object_type != ATOMIK_OBJTYPE_TCB)
+    ATOMIK_FAIL (ATOMIK_ERROR_INVALID_CAPABILITY);
+
+  tcb = cap->tcb.base;
 
   if (tcb->sched_next != NULL)
     ATOMIK_FAIL (ATOMIK_ERROR_PUSH_FIRST);
@@ -204,7 +216,8 @@ atomik_sched_pull_tcb (tcb_t *tcb)
 void
 atomik_sched_schedule (void)
 {
-  curr_tcb = curr_tcb->sched_next;
+  if (!sched_is_idle ())
+    curr_tcb = curr_tcb->sched_next;
 }
 
 void
