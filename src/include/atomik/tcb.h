@@ -23,7 +23,8 @@
 #include <machinedefs.h>
 #include <atomik/cap.h>
 
-#define ATOMIK_TCB_SIZE_BITS  7
+#define ATOMIK_TCB_SIZE_BITS     7
+#define ATOMIK_SCHED_QUEUE_COUNT 256
 
 enum thread_state
 {
@@ -70,5 +71,13 @@ int atomik_tcb_configure (
                       capslot_t *);
 
 capslot_t *elf32_load_tcb (void *, size_t, capslot_t *);
+
+int atomik_sched_push_tcb (tcb_t *);
+
+int atomik_sched_pull_tcb (tcb_t *);
+
+void atomik_sched_schedule (void);
+
+void sched_init (void);
 
 #endif /* _ATOMIK_TCB_H */
