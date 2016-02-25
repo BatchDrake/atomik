@@ -29,6 +29,7 @@ main (void *root_task_base, size_t root_task_size)
 {
   int i;
 
+  int retcode;
   capslot_t root;
   capslot_t *root_task;
   
@@ -57,7 +58,8 @@ main (void *root_task_base, size_t root_task_size)
 
   sched_init ();
 
-  atomik_sched_push_tcb (root_task);
+  if ((retcode = atomik_sched_push_tcb (root_task)) < 0)
+    printf ("atomik: cannot push TCB: %s\n", error_to_string (-retcode));
 
   enter_multitasking ();
 }

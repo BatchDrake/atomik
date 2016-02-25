@@ -276,23 +276,33 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
   if ((codeseg = elf32_find_phdr (&handle, PF_R | PF_X)) == NULL)
     ELF32_THROW ("Cannot find code segment for root task");
 
-  if ((dataseg = elf32_find_phdr (&handle, PF_R | PF_W)) == NULL)
-    ELF32_THROW ("Cannot find data segment for root task");
+  dataseg = elf32_find_phdr (&handle, PF_R | PF_W);
 
-  if (codeseg->p_vaddr > dataseg->p_vaddr)
-    ELF32_THROW ("Code segment cannot be above data segment");
+  if (dataseg != NULL)
+  {
+    if (codeseg->p_vaddr > dataseg->p_vaddr)
+      ELF32_THROW ("Code segment cannot be above data segment");
 
-  if (dataseg->p_vaddr - (codeseg->p_vaddr + codeseg->p_memsz) > PAGE_SIZE)
-    ELF32_THROW ("Code/data gap too big");
+    if (dataseg->p_vaddr - (codeseg->p_vaddr + codeseg->p_memsz) > 2 * PAGE_SIZE)
+      ELF32_THROW ("Code/data gap too big");
 
-  if (codeseg->p_vaddr & PAGE_CONTROL_MASK)
-    ELF32_THROW ("Unaligned code segment");
+    if (codeseg->p_vaddr & PAGE_CONTROL_MASK)
+      ELF32_THROW ("Unaligned code segment");
 
-  first_page = PAGE_START (codeseg->p_vaddr);
-  last_page  = PAGE_START (dataseg->p_vaddr + dataseg->p_memsz - 1);
+    first_page = PAGE_START (codeseg->p_vaddr);
+    last_page  = PAGE_START (dataseg->p_vaddr + dataseg->p_memsz - 1);
 
-  first_pt   = PT_START (codeseg->p_vaddr);
-  last_pt    = PT_START (dataseg->p_vaddr + dataseg->p_memsz - 1);
+    first_pt   = PT_START (codeseg->p_vaddr);
+    last_pt    = PT_START (dataseg->p_vaddr + dataseg->p_memsz - 1);
+  }
+  else
+  {
+    first_page = PAGE_START (codeseg->p_vaddr);
+    last_page  = PAGE_START (codeseg->p_vaddr + codeseg->p_memsz - 1);
+
+    first_pt   = PT_START (codeseg->p_vaddr);
+    last_pt    = PT_START (codeseg->p_vaddr + codeseg->p_memsz - 1);
+  }
 
   ELF32_MSG ("First page: 0x%x", first_page);
   ELF32_MSG ("Last page:  0x%x", last_page);
@@ -469,7 +479,7 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
       attrib = ATOMIK_ACCESS_READ | ATOMIK_ACCESS_EXEC;
       seg    = codeseg;
     }
-    else if (vaddr >= PAGE_START (dataseg->p_vaddr) &&
+    else if (dataseg != NULL && vaddr >= PAGE_START (dataseg->p_vaddr) &&
         vaddr < dataseg->p_vaddr + dataseg->p_memsz)
     {
       attrib = ATOMIK_ACCESS_READ | ATOMIK_ACCESS_WRITE;

@@ -76,10 +76,10 @@ error_to_string (error_t err)
       return "Microkernel unit test has failed";
 
     case ATOMIK_ERROR_PULL_FIRST:
-      return "Thread already in the scheduler queues";
+      return "Thread already in scheduler queues";
 
     case ATOMIK_ERROR_PUSH_FIRST:
-      return "Thread is not in the scheduler queues";
+      return "Thread is not in scheduler queues";
 
     case ATOMIK_ERROR_ALREADY_BOUND:
       return "Object is already bound to a TCB";

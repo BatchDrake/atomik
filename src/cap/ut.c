@@ -230,6 +230,9 @@ atomik_untyped_retype (
         destination[i].tcb.base = __atomik_phys_to_remap (curr_address);
         destination[i].tcb.access = ut->ut.access;
 
+        /* Ensure all fields are cleared */
+        memset (destination[i].tcb.base, 0, sizeof (tcb_t));
+
         __arch_init_tcb (destination[i].tcb.base);
 
         break;

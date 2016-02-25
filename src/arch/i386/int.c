@@ -29,6 +29,8 @@
 #include <i386-regs.h>
 #include <i386-irq.h>
 
+#include <atomik-user.h> /* Needed for syscall numbers */
+
 /* Note: IDT is paged, no BOOT_SYMBOL declaration needed */
 struct idt_entry idt_entries[256];
 struct idt_ptr   idt_ptr;
@@ -40,10 +42,20 @@ extern uintptr_t *curr_vspace; /* If NULL: boot vspace */
 static inline void
 i386_handle_syscall (unsigned int syscallno)
 {
-  printf ("Thread made a system call! (syscall %d)\n", syscallno);
-  printf ("Nothing left to do. Halting.\n");
+  switch (syscallno)
+  {
+    case __ASC_d_putc:
+      __arch_debug_putchar (curr_tcb->regs.r[I386_TCB_REG_EBX]);
+      break;
 
-  __arch_machine_halt ();
+    case __ASC_d_halt:
+      __arch_machine_halt ();
+      break;
+
+    default:
+      printf ("*** error, invalid system call %d\n", syscallno);
+      curr_tcb->regs.r[I386_TCB_REG_EAX] = -1;
+  }
 }
 
 void

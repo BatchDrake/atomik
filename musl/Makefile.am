@@ -1,11 +1,6 @@
 AUTOMAKE_OPTIONS = subdir-objects
 
-noinst_LIBRARIES = libmusl.a
-
-libmusl_a_CFLAGS =-std=c99 -nostdinc -nostdlib -fno-builtin -Isrc/internal -Iinclude -I../src/include -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -D_XOPEN_SOURCE=700 -ggdb -Iarch/@AM_ARCH@ @AM_CFLAGS@
-
-libmusl_a_SOURCES = \
-	src/ctype/__ctype_get_mb_cur_max.c \
+MUSL_ALLSOURCES = src/ctype/__ctype_get_mb_cur_max.c \
 	src/ctype/alpha.h \
 	src/ctype/punct.h \
 	src/ctype/nonspacing.h \
@@ -180,7 +175,7 @@ libmusl_a_SOURCES = \
 	src/string/wcscasecmp_l.c \
 	src/string/wcscat.c \
 	src/string/wcschr.c \
-	src/string/wcscmp.c \
+	src/string/wcscmp.c \atomik
 	src/string/wcscpy.c \
 	src/string/wcscspn.c \
 	src/string/wcsdup.c \
@@ -371,6 +366,7 @@ libmusl_a_SOURCES = \
 	arch/aarch64/crt_arch.h \
 	arch/i386/pthread_arch.h \
 	arch/i386/atomic.h \
+	arch/i386/atomik.h \
 	arch/i386/reloc.h \
 	arch/i386/syscall_arch.h \
 	arch/i386/bits/ioctl.h \
@@ -566,3 +562,17 @@ libmusl_a_SOURCES = \
 	include/values.h \
 	include/wchar.h \
 	include/wctype.h
+
+noinst_LIBRARIES = libmusl.a libmusluser.a
+
+libmusl_a_CFLAGS =-std=c99 -nostdinc -nostdlib -fno-builtin -Isrc/internal -Iinclude -I../src/include -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -D_XOPEN_SOURCE=700 -ggdb -Iarch/@AM_ARCH@ @AM_CFLAGS@ -D__ATOMIK__
+
+libmusl_a_SOURCES = $(MUSL_ALLSOURCES) \
+	include/atomik-user.h 
+
+libmusluser_a_CFLAGS =-std=c99 -nostdinc -nostdlib -fno-builtin -Isrc/internal -Iinclude -Werror=implicit-function-declaration -Werror=implicit-int -Werror=pointer-sign -Werror=pointer-arith -D_XOPEN_SOURCE=700 -ggdb -Iarch/@AM_ARCH@ @AM_CFLAGS@
+
+libmusluser_a_SOURCES = $(MUSL_ALLSOURCES) \
+	include/atomik-user.h \
+	src/atomik/debug.c
+

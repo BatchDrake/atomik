@@ -84,17 +84,18 @@ atomik_tcb_configure (capslot_t *tcb,
   if (croot->cnode.tcb != NULL || vroot->pd.tcb != NULL)
     ATOMIK_FAIL (ATOMIK_ERROR_ALREADY_BOUND);
 
-  if (tcb->tcb.base->cspace != NULL)
-    tcb->tcb.base->cspace->cnode.tcb = NULL;
-
   tcb->tcb.base->cspace = croot;
+
   croot->cnode.tcb = tcb->tcb.base;
 
-  if (tcb->tcb.base->vspace != NULL)
-    tcb->tcb.base->vspace->pd.tcb = NULL;
-
   tcb->tcb.base->vspace = vroot;
-  vroot->pd.tcb = tcb->tcb.base;
+
+  if (tcb->tcb.base->cspace != NULL)
+    tcb->tcb.base->cspace->cnode.tcb = tcb->tcb.base;
+
+  if (tcb->tcb.base->vspace != NULL)
+    tcb->tcb.base->vspace->pd.tcb = tcb->tcb.base;
+
 
   tcb->tcb.base->prio = prio;
   tcb->tcb.base->f_ep = f_ep;
