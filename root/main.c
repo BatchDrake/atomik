@@ -19,19 +19,10 @@
 #include <stdio.h>
 #include <atomik-user.h>
 
-char *text = "Hello";
-
-void
-d_puts (const char *msg)
-{
-  while (*msg)
-    d_putch (*msg++);
-}
-
 void
 _start (void)
 {
-  d_puts ("Hello world! This is my first userland program!\n");
-
+  printf ("Hello world (_start @ %p)\n", _start);
+  
   d_halt ();
 }

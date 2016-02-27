@@ -259,12 +259,14 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
   uintptr_t first_pt, last_pt;
   uintptr_t vaddr;
   uintptr_t attrib;
-
+  
   unsigned int pages;
   unsigned int pts;
   unsigned int objcount;
   unsigned int allocsize;
   unsigned int i, j;
+  unsigned int off, ssize, foff;
+  
   size_t fittest_bits = 0;
   int retval;
 
@@ -276,6 +278,10 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
   if ((codeseg = elf32_find_phdr (&handle, PF_R | PF_X)) == NULL)
     ELF32_THROW ("Cannot find code segment for root task");
 
+  if (PAGE_OFFSET (codeseg->p_vaddr) !=
+      PAGE_OFFSET (codeseg->p_offset))
+    ELF32_THROW ("Code segment alignment error");
+  
   dataseg = elf32_find_phdr (&handle, PF_R | PF_W);
 
   if (dataseg != NULL)
@@ -286,9 +292,10 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
     if (dataseg->p_vaddr - (codeseg->p_vaddr + codeseg->p_memsz) > 2 * PAGE_SIZE)
       ELF32_THROW ("Code/data gap too big");
 
-    if (codeseg->p_vaddr & PAGE_CONTROL_MASK)
-      ELF32_THROW ("Unaligned code segment");
-
+    if (PAGE_OFFSET (dataseg->p_vaddr) !=
+        PAGE_OFFSET (dataseg->p_offset))
+    ELF32_THROW ("Data segment alignment error");
+  
     first_page = PAGE_START (codeseg->p_vaddr);
     last_page  = PAGE_START (dataseg->p_vaddr + dataseg->p_memsz - 1);
 
@@ -497,18 +504,39 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
      * physical memory.
      */
 
-    if (seg != NULL &&
-        vaddr >= PAGE_START (seg->p_vaddr) &&
-        vaddr < seg->p_vaddr + seg->p_filesz)
+    if (seg != NULL)
+    {
+      /* Detect first page*/
+      if (vaddr == PAGE_START (seg->p_vaddr))
+      {
+        ssize = seg->p_filesz;
+        foff = seg->p_offset;
+      }
+      else
+      {
+        ssize = seg->p_filesz - (vaddr - seg->p_vaddr);
+        foff = seg->p_offset + (vaddr - seg->p_vaddr);
+      }
+    
+      off  = PAGE_OFFSET (foff);
+    
+      if (ssize + off > PAGE_SIZE)
+        ssize = PAGE_SIZE - off;
+      
       memcpy (
-          (uint8_t *) page_caps[i].page.base,
-          (const uint8_t *) buf + PAGE_START (seg->p_offset) + PAGE_ADDRESS (i),
-          PAGE_SIZE);
+        (uint8_t *) page_caps[i].page.base + off,
+        (const uint8_t *) buf + foff,
+        size);  
+    }
     else
-      memset (page_caps[i].page.base, 0, PAGE_SIZE);
-
+      off = ssize = 0;
+    
+    memset (
+      (uint8_t *) page_caps[i].page.base + off + ssize,
+      0,
+      PAGE_SIZE - off - ssize);
   }
-
+  
   ELF32_MSG ("Mapping stack segments...");
 
   /* Map stack segment */
