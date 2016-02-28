@@ -271,4 +271,7 @@ void isr160 (void);
 /* Bugcheck interrupt */
 void isr255 (void); 
 
+/* Handle syscall */
+void i386_handle_syscall (unsigned int);
+
 #endif /* _ARCH_I386_INT_H */

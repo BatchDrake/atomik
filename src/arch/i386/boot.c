@@ -541,7 +541,7 @@ boot_entry (void)
       "pushl %%ecx\n"
       "call main\n"
       : :
-        "m" (kernel_stack),
+        "m" (kernel_stack[0]),
         "a" (sizeof (kernel_stack) - 4),
         "b" (initrd_size),
         "c" (initrd_start));

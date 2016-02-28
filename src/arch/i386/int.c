@@ -39,25 +39,6 @@ extern tcb_t idle_tcb;
 extern tcb_t *curr_tcb;
 extern uintptr_t *curr_vspace; /* If NULL: boot vspace */
 
-static inline void
-i386_handle_syscall (unsigned int syscallno)
-{
-  switch (syscallno)
-  {
-    case __ASC_d_putc:
-      __arch_debug_putchar (curr_tcb->regs.r[I386_TCB_REG_EBX]);
-      break;
-
-    case __ASC_d_halt:
-      __arch_machine_halt ();
-      break;
-
-    default:
-      printf ("*** error, invalid system call %d\n", syscallno);
-      curr_tcb->regs.r[I386_TCB_REG_EAX] = -1;
-  }
-}
-
 void
 i386_handle_kernel_interrupt (struct i386_fault_frame *frame)
 {

@@ -47,7 +47,7 @@ capslot_t *
 capslot_cspace_resolve (capslot_t *root, cptr_t addr, unsigned char depth, struct caplookup_exception_info *info)
 {
   capslot_t *leaf;
-  unsigned int bits_resolved;
+  unsigned int bits_resolved = 0;
   
   cptr_t   guard;
   uint32_t entry;
@@ -55,47 +55,66 @@ capslot_cspace_resolve (capslot_t *root, cptr_t addr, unsigned char depth, struc
   if (root->object_type != ATOMIK_OBJTYPE_CNODE)
     CAPSLOT_LOOKUP_FAILURE (ATOMIK_CAPLOOKUP_EXCEPTION_INVALID_ROOT, 0, 0, 0)
   
-  for (;;)
+  while (bits_resolved < CPTR_BITS)
   {
-    bits_resolved = root->cnode.guard_bits + root->cnode.size_bits;
+    bits_resolved += root->cnode.guard_bits + root->cnode.size_bits;
     entry  = addr  >> (CPTR_BITS - bits_resolved);
     guard  = entry >> root->cnode.size_bits;
     entry &= BIT (root->cnode.size_bits) - 1;
 
-    if (root->cnode.guard_bits > depth ||
-        root->cnode.guard != guard)
-      CAPSLOT_LOOKUP_FAILURE (ATOMIK_CAPLOOKUP_EXCEPTION_GUARD_MISMATCH,
-                              depth,
-                              root->cnode.guard,
-                              root->cnode.guard_bits)
+    if (depth > 0)
+    {
+      if (root->cnode.guard_bits > depth)
+        CAPSLOT_LOOKUP_FAILURE (
+          ATOMIK_CAPLOOKUP_EXCEPTION_GUARD_MISMATCH,
+          depth,
+          root->cnode.guard,
+          root->cnode.guard_bits)
+          
+      if (bits_resolved > depth)
+        CAPSLOT_LOOKUP_FAILURE (
+          ATOMIK_CAPLOOKUP_EXCEPTION_DEPTH_MISMATCH,
+          depth,
+          bits_resolved,
+          0)
+    }
+        
+    if (root->cnode.guard != guard)
+      CAPSLOT_LOOKUP_FAILURE (
+        ATOMIK_CAPLOOKUP_EXCEPTION_GUARD_MISMATCH,
+        depth,
+        root->cnode.guard,
+        root->cnode.guard_bits)
 
-    if (bits_resolved > depth)
-      CAPSLOT_LOOKUP_FAILURE (ATOMIK_CAPLOOKUP_EXCEPTION_DEPTH_MISMATCH,
-                              depth,
-                              bits_resolved,
-                              0)
-
-    root = CNODE_BASE (root) + entry;
-  
-    depth -= bits_resolved;
-    addr <<= bits_resolved;
-
-    /* Node found, no more bits to resolve */
-  
-    if (depth == 0)
-      return leaf;
-
+    leaf = CNODE_BASE (root) + entry;
     if (leaf->object_type == ATOMIK_OBJTYPE_NULL)
-      CAPSLOT_LOOKUP_FAILURE (ATOMIK_CAPLOOKUP_EXCEPTION_MISSING_CAPABILITY,
-                              depth,
-                              0,
-                              0)
+      CAPSLOT_LOOKUP_FAILURE (
+        ATOMIK_CAPLOOKUP_EXCEPTION_MISSING_CAPABILITY,
+        depth,
+        0,
+        0)
+    
+    /* Node found, no more bits to resolve */
+    if (depth > 0)
+    {
+      depth -= bits_resolved;
+
+      if (depth == 0)
+        break;
+      else if (leaf->object_type != ATOMIK_OBJTYPE_CNODE)
+        CAPSLOT_LOOKUP_FAILURE (
+          ATOMIK_CAPLOOKUP_EXCEPTION_DEPTH_MISMATCH,
+          depth,
+          bits_resolved,
+          0)
+    }
     else if (leaf->object_type != ATOMIK_OBJTYPE_CNODE)
-      CAPSLOT_LOOKUP_FAILURE (ATOMIK_CAPLOOKUP_EXCEPTION_DEPTH_MISMATCH,
-                              depth,
-                              bits_resolved,
-                              0)
+      break;
+    
+    root = leaf;
   }
+
+  return leaf;
 }
 
 int

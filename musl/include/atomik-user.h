@@ -19,8 +19,41 @@
 #ifndef _ATOMIK_USER_H
 #define _ATOMIK_USER_H
 
+#define AOT_ANY     0
+#define AOT_UNTYPED 1
+#define AOT_CNODE   2
+#define AOT_PAGE    3
+#define AOT_PT      4
+#define AOT_PD      5
+#define AOT_EP      6
+#define AOT_NOTIFY  7
+#define AOT_TCB     8
+
+#define ASC_NO(aot, func) \
+  (((aot) << 24) | (func))
+
+#define __ASC_cap_get_info ASC_NO (AOT_ANY, 0)
+#define __ASC_cap_delete   ASC_NO (AOT_ANY, 1)
+#define __ASC_cap_revoke   ASC_NO (AOT_ANY, 2)
+#define __ASC_cap_drop     ASC_NO (AOT_ANY, 3)
+
+#define __ASC_ut_retype    ASC_NO (AOT_UNTYPED, 1)
+
+#define __ASC_page_remap   ASC_NO (AOT_PAGE, 1)
+
+#define __ASC_pt_map_page  ASC_NO (AOT_PT, 0)
+#define __ASC_pt_remap     ASC_NO (AOT_PT, 1)
+
+#define __ASC_pd_map_pt    ASC_NO (AOT_PD, 0)
+
+#define __ASC_tcb_config   ASC_NO (AOT_TCB, 0)
+#define __ASC_sched_push   ASC_NO (AOT_TCB, 1)
+#define __ASC_sched_pull   ASC_NO (AOT_TCB, 2)
+#define __ASC_sched_yield  ASC_NO (AOT_TCB, 3)
+
 #define __ASC_d_halt 0xfffffffe
 #define __ASC_d_putc 0xffffffff
+
 
 void d_putch (char);
 void d_halt (void);
