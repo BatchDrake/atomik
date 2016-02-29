@@ -24,8 +24,6 @@
 #include <util.h>
 #include <alltypes.h>
 
-#define CPTR_BITS 32
-
 #if defined (__i386__)
 #  define ATOMIK_CAPSLOT_SIZE_BITS 5
 #elif defined (__x86_64__)
@@ -44,7 +42,8 @@
 #define ATOMIK_ACCESS_GRANT 8
 #define ATOMIK_ACCESS_REMAP 16
 
-#define ATOMIK_CPTR_FULL_DEPTH
+#define ATOMIK_FULL_DEPTH   0xff
+
 #define ATOMIK_FULL_ACCESS \
   (ATOMIK_ACCESS_EXEC  | \
    ATOMIK_ACCESS_WRITE | \
@@ -194,8 +193,6 @@ struct capslot
 typedef struct capslot capslot_t;
 
 CPPASSERT(sizeof (capslot_t) == ATOMIK_CAPSLOT_SIZE);
-
-typedef uint32_t cptr_t;
 
 enum caplookup_exception
 {

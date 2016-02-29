@@ -57,7 +57,7 @@ ASC_PROTO (cap_get_info)
   cptr_t cptr = (cptr_t) SYSCALL_ARG (0);
   unsigned int depth =   SYSCALL_ARG (1);
   capslot_t *cap;
-  
+
   if ((cap = capslot_cspace_resolve (
          curr_tcb->cspace,
          cptr,
@@ -66,6 +66,7 @@ ASC_PROTO (cap_get_info)
     SYSCALL_FAIL (ATOMIK_ERROR_FAILED_LOOKUP);
 
   SYSCALL_RET (cap->object_type);
+  
   switch (cap->object_type)
   {
     case ATOMIK_OBJTYPE_UNTYPED:

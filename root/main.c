@@ -17,12 +17,53 @@
  */
 
 #include <stdio.h>
-#include <atomik-user.h>
+#include <system/cap.h>
 
 void
 _start (void)
 {
+  unsigned int i;
+  struct capinfo info;
+  uint32_t cptr, guard;
+  char guard_bits, bits;
+  unsigned int entries;
+  
   printf ("Hello world (_start @ %p)\n", _start);
+
+  if (cap_get_info (0, 0, &info) == -1)
+    printf ("root: cspace lookup failed\n");
+  else
+  {
+    entries = 1 << info.ci_bits; 
+    printf (
+      "CSpace found: type %d, %d entries\n",
+      info.ci_type,
+      entries);
+
+    printf (
+      "CSpace found: guard is 0x%x (%d bits)\n",
+      info.ci_guard,
+      info.ci_guard_bits);
+
+    bits = info.ci_bits;
+    guard = info.ci_guard;
+    guard_bits = info.ci_guard_bits;
+
+    printf ("CSpace contents:\n");
+    
+    for (i = 0; i < entries; ++i)
+    {
+      cptr = guard << (32 - guard_bits);
+      cptr |= i << (32 - guard_bits - bits);
+
+      if (cap_get_info (cptr, guard_bits + bits, &info) != -1) 
+        printf (
+          "[%08x] Object of type %d (%d bytes / entries)\n",
+          cptr,
+          info.ci_type,
+          1 << info.ci_bits);
+    }
+  }
   
   d_halt ();
 }

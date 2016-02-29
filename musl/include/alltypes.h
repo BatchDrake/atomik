@@ -74,6 +74,11 @@ typedef struct __sigset_t { unsigned long __bits[128/sizeof(long)]; } sigset_t;
 
 struct iovec { void *iov_base; size_t iov_len; };
 
+/* Atomik-spceific types and declarations */
+#define CPTR_BITS 32
+
+typedef uint32_t cptr_t;
+
 enum error
 {
   ATOMIK_SUCCESS,
@@ -100,5 +105,6 @@ enum error
 };
 
 typedef enum error error_t;
+
 
 #endif

@@ -54,7 +54,6 @@
 #define __ASC_d_halt 0xfffffffe
 #define __ASC_d_putc 0xffffffff
 
-
 void d_putch (char);
 void d_halt (void);
 

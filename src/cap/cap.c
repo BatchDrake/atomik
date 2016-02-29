@@ -51,10 +51,13 @@ capslot_cspace_resolve (capslot_t *root, cptr_t addr, unsigned char depth, struc
   
   cptr_t   guard;
   uint32_t entry;
+
+  if (depth == 0)
+    return root;
   
   if (root->object_type != ATOMIK_OBJTYPE_CNODE)
     CAPSLOT_LOOKUP_FAILURE (ATOMIK_CAPLOOKUP_EXCEPTION_INVALID_ROOT, 0, 0, 0)
-  
+
   while (bits_resolved < CPTR_BITS)
   {
     bits_resolved += root->cnode.guard_bits + root->cnode.size_bits;
@@ -62,7 +65,7 @@ capslot_cspace_resolve (capslot_t *root, cptr_t addr, unsigned char depth, struc
     guard  = entry >> root->cnode.size_bits;
     entry &= BIT (root->cnode.size_bits) - 1;
 
-    if (depth > 0)
+    if (depth != ATOMIK_FULL_DEPTH)
     {
       if (root->cnode.guard_bits > depth)
         CAPSLOT_LOOKUP_FAILURE (
@@ -95,7 +98,7 @@ capslot_cspace_resolve (capslot_t *root, cptr_t addr, unsigned char depth, struc
         0)
     
     /* Node found, no more bits to resolve */
-    if (depth > 0)
+    if (depth != ATOMIK_FULL_DEPTH)
     {
       depth -= bits_resolved;
 

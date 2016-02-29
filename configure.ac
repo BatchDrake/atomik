@@ -79,6 +79,7 @@ AC_SUBST(AM_LDFLAGS)
 AC_OUTPUT([
   Makefile
   musl/Makefile
+  libatomik/Makefile
   src/Makefile
   src/cap/Makefile
   src/test/Makefile

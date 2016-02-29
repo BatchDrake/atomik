@@ -379,7 +379,7 @@ elf32_load_tcb (void *buf, size_t size, capslot_t *croot)
   if ((tcb_desc_cnode = elf32_find_free_capslots (croot, 1)) == NULL)
     ELF32_THROW ("Root CNode is full");
 
-  ELF32_MSG ("Retype CNode of %d bytes", BIT (fittest_bits + ATOMIK_CAPSLOT_SIZE_BITS));
+  ELF32_MSG ("Retype CNode of %d entries", BIT (fittest_bits));
 
   if ((retval = atomik_untyped_retype (
                     ut,
