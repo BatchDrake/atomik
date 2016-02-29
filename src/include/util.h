@@ -78,6 +78,25 @@ CPPASSERT (PAGE_BITS + PTE_BITS + PDE_BITS == VIRT_ADDR_BITS);
     __arch_machine_halt ();                                             \
   }
 
+/*
+ * Bittree macros
+ */
+#define BITTREE_DEBRUIJN32 0x77cb531
+#define BITTREE_FULL_NODE  0xffffffff
+
+/*
+ * Bittree functions
+ */
+
+unsigned int bittree_find (uint32_t *, size_t);
+
+void bittree_mark (uint32_t *, size_t, unsigned int);
+
+void bittree_unmark (uint32_t *, size_t, unsigned int);
+
+/*
+ * General utility functions
+ */
 const char *error_to_string (error_t);
 
 #endif /* _UTIL_H */
