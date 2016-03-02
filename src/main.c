@@ -32,9 +32,9 @@ main (void *root_task_base, size_t root_task_size)
   int retcode;
   capslot_t root;
   capslot_t *root_task;
-  
-  machine_init ();
 
+  machine_init ();
+  
   capabilities_init (&root);
 
   if (run_tests (&root) != ATOMIK_SUCCESS)

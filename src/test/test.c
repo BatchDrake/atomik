@@ -146,20 +146,20 @@ test_ut_retype (struct atomik_test_env *env)
 
   off = i;
 
-  ATOMIK_TEST_ASSERT (ut->mdb_child == &destination[0]);
+  ATOMIK_TEST_ASSERT (ut->mdb_child == &destination[3]);
 
   for (i = 0; i < 4; ++i)
   {
     ATOMIK_TEST_ASSERT (destination[i].object_type == ATOMIK_OBJTYPE_UNTYPED);
     ATOMIK_TEST_ASSERT (destination[i].mdb_parent  == ut);
 
-    if (i > 0)
-      ATOMIK_TEST_ASSERT (destination[i].mdb_prev == &destination[i - 1])
+    if (i < 3)
+      ATOMIK_TEST_ASSERT (destination[i].mdb_prev == &destination[i + 1])
     else
       ATOMIK_TEST_ASSERT (destination[i].mdb_prev == NULL)
 
-    if (i < 3)
-      ATOMIK_TEST_ASSERT (destination[i].mdb_next == &destination[i + 1])
+    if (i > 0)
+      ATOMIK_TEST_ASSERT (destination[i].mdb_next == &destination[i - 1])
     else
       ATOMIK_TEST_ASSERT (destination[i].mdb_next == NULL)
   }
@@ -197,9 +197,12 @@ test_vspace (struct atomik_test_env *env)
   ATOMIK_TEST_ASSERT (destination != NULL);
 
   ATOMIK_TEST_ASSERT_SUCCESS (
-      atomik_untyped_retype (ut, ATOMIK_OBJTYPE_PD, ATOMIK_PD_SIZE_BITS,
-                             destination,
-                             1));
+      -atomik_untyped_retype (
+        ut,
+        ATOMIK_OBJTYPE_PD,
+        ATOMIK_PD_SIZE_BITS,
+        destination,
+        1));
 
   kernel_size = __arch_get_kernel_layout ((void **) &kernel_virt_start, &kernel_phys_start);
 

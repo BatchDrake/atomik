@@ -27,51 +27,6 @@
 
 #include <arch.h>
 
-static inline error_t
-__atomik_objtype_adjust_size_bits (objtype_t type, unsigned int *size_bits)
-{
-  error_t exception = ATOMIK_SUCCESS;
-
-  switch (type)
-  {
-    case ATOMIK_OBJTYPE_UNTYPED:
-      if (*size_bits < ATOMIK_MIN_UT_SIZE_BITS)
-        ATOMIK_FAIL (ATOMIK_ERROR_INVALID_SIZE);
-      break;
-
-    case ATOMIK_OBJTYPE_CNODE:
-      *size_bits += ATOMIK_CAPSLOT_SIZE_BITS;
-      break;
-
-    case ATOMIK_OBJTYPE_PAGE:
-      *size_bits = ATOMIK_PAGE_SIZE_BITS;
-      break;
-
-    case ATOMIK_OBJTYPE_PD:
-      *size_bits = ATOMIK_PD_SIZE_BITS;
-      break;
-
-    case ATOMIK_OBJTYPE_PT:
-      *size_bits = ATOMIK_PT_SIZE_BITS;
-      break;
-
-    case ATOMIK_OBJTYPE_TCB:
-      *size_bits = ATOMIK_TCB_SIZE_BITS;
-      break;
-
-    case ATOMIK_OBJTYPE_ENDPOINT:
-      *size_bits = 2;
-      break;
-
-    default:
-      ATOMIK_FAIL (ATOMIK_ERROR_INVALID_TYPE);
-  }
-
-fail:
-
-  return exception;
-}
-
 static inline size_t
 __atomik_align_watermark (const capslot_t *ut, size_t size_bits)
 {
@@ -135,14 +90,17 @@ atomik_untyped_retype (
 
   if (watermark + total_size > ut_size)
     ATOMIK_FAIL (ATOMIK_ERROR_NOT_ENOUGH_MEMORY);
-
+  
   /* Check whether we are trying to retype a high memory
    * UT into a kernel object. This is not allowed since
    * high memory is only usable by userland processes as
    * page frames.
    */
-  if (!__atomik_phys_is_remappable (ut->ut.base, total_size))
-    ATOMIK_FAIL (ATOMIK_ERROR_PAGES_ONLY);
+  if (type != ATOMIK_OBJTYPE_PAGE &&
+      type != ATOMIK_OBJTYPE_UNTYPED &&
+      type != ATOMIK_OBJTYPE_POOL)
+    if (!__atomik_phys_is_remappable (ut->ut.base, total_size))
+      ATOMIK_FAIL (ATOMIK_ERROR_PAGES_ONLY);
 
   curr_address = ((uintptr_t) UT_BASE (ut)) + watermark;
 
@@ -156,115 +114,21 @@ atomik_untyped_retype (
     if (destination[i].object_type != ATOMIK_OBJTYPE_NULL)
       ATOMIK_FAIL (ATOMIK_ERROR_DELETE_FIRST);
 
-    destination[i].object_type = type;
+    if ((exception = capslot_init (
+        &destination[i],
+        type,
+        size_bits,
+        ut->ut.access,
+        (uintptr_t) ut->ut.base + watermark)) != ATOMIK_SUCCESS)
+      goto fail;
 
-    /* Initialize object accordingly */
-    switch (type)
-    {
-      case ATOMIK_OBJTYPE_UNTYPED:
-        destination[i].ut.base = (void *) curr_address;
-        destination[i].ut.size_bits = size_bits;
-        destination[i].ut.access = ut->ut.access;
-
-        break;
-
-      case ATOMIK_OBJTYPE_CNODE:
-        destination[i].cnode.base =
-            (capslot_t *) __atomik_phys_to_remap (curr_address);
-        destination[i].cnode.size_bits = size_bits - ATOMIK_CAPSLOT_SIZE_BITS;
-        destination[i].cnode.access = ut->ut.access;
-
-        /* No guard */
-        destination[i].cnode.guard_bits = 0;
-        destination[i].cnode.guard      = 0;
-
-        /* Clear all CNode entries */
-        memset (destination[i].cnode.base, 0, obj_size);
-
-        break;
-
-      case ATOMIK_OBJTYPE_PAGE:
-        /* Page base is physmem Its base address may not be available
-         * in kernel mode. */
-        destination[i].page.base = (void *) curr_address;
-        destination[i].page.access = ut->ut.access;
-        destination[i].page.pt = NULL; /* Unlinked page */
-        destination[i].page.vaddr_hi  = 0;
-        destination[i].page.vaddr_lo1 = 0;
-        destination[i].page.vaddr_lo2 = 0;
-
-        /* Clear page contents */
-        memset (destination[i].page.base, 0, obj_size);
-
-        break;
-
-      case ATOMIK_OBJTYPE_PT:
-        /* Page tables and directories must be accessible from kernel mode */
-        destination[i].pt.base = __atomik_phys_to_remap (curr_address);
-        destination[i].pt.access = ut->ut.access;
-        destination[i].pt.pd = NULL; /* Unlinked page */
-        destination[i].pt.vaddr_hi  = 0;
-        destination[i].pt.vaddr_lo1 = 0;
-        destination[i].pt.vaddr_lo2 = 0;
-
-
-        /* Clear page table */
-        memset (destination[i].page.base, 0, obj_size);
-
-        break;
-
-      case ATOMIK_OBJTYPE_PD:
-        /* Page tables and directories must be accessible from kernel mode */
-        destination[i].pd.base = __atomik_phys_to_remap (curr_address);
-        destination[i].pd.access = ut->ut.access;
-
-        /* Clear page directory */
-        memset (destination[i].page.base, 0, obj_size);
-
-        /* Map kernel */
-        __arch_map_kernel (destination[i].page.base);
-
-        break;
-
-      case ATOMIK_OBJTYPE_TCB:
-        destination[i].tcb.base = __atomik_phys_to_remap (curr_address);
-        destination[i].tcb.access = ut->ut.access;
-
-        /* Ensure all fields are cleared */
-        memset (destination[i].tcb.base, 0, sizeof (tcb_t));
-
-        __arch_init_tcb (destination[i].tcb.base);
-
-        break;
-
-      case ATOMIK_OBJTYPE_ENDPOINT:
-        /* TODO: Write me */
-        break;
-
-      default:
-        ATOMIK_FAIL (ATOMIK_ERROR_INVALID_ARGUMENT);
-    }
-
-    /* Update MDB pointers */
-    if (i > 0)
-    {
-      destination[i].mdb_prev = &destination[i - 1];
-      destination[i - 1].mdb_next = &destination[i];
-    }
-    else
-      destination[i].mdb_prev = NULL;
-
-    destination[i].mdb_next = NULL;
-    destination[i].mdb_parent = ut;
+    capslot_add_child (ut, &destination[i]);
 
     curr_address += obj_size;
     watermark    += obj_size;
 
     ut->ut.watermark = watermark;
   }
-
-  /* All set, we can mark the UT object as retyped */
-  ut->mdb_child = destination;
 
   return ATOMIK_SUCCESS;
 

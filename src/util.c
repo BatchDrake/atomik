@@ -19,86 +19,6 @@
 #include <alltypes.h>
 #include <util.h>
 
-static inline unsigned int
-__lsb32 (uint32_t word)
-{
-  static const int hashpos[] =
-    {0,  1, 28,  2,
-     29, 14, 24, 3,
-     30, 22, 20, 15,
-     25, 17, 4, 8,
-     31, 27, 13, 23,
-     21, 19, 16, 7,
-     26, 12, 18, 6,
-     11, 5, 10, 9};
-
-  return hashpos[((word & (-word)) * BITTREE_DEBRUIJN32) >> 27];
-}
-
-static inline unsigned int
-__msb32 (uint32_t word)
-{
-  unsigned int r = 0;
-  static const unsigned int msbs[] =
-    {0, 1, 2, 2,
-     3, 3, 3, 3,
-     4, 4, 4, 4,
-     4, 4, 4, 4};
-
-  /* Is there any bit in the upper half? */
-  if (0xffff0000 & word)
-  {
-    r += 16;
-    word >>= 16;
-  }
-
-  /* Is there any bit in the upper byte? */
-  if (0xff00 & word)
-  {
-    r += 8;
-    word >>= 8;
-  }
-
-  /* Is there any bit in the upper nibble? */
-  if (0xf0 & word)
-  {
-    r += 4;
-    word >>= 4;
-  }
-
-  return r + msbs[word];
-}
-
-/* The occupation tree using 32 bit nodes implies that:
-
-   Up to 32 blocks: 1 level (1 word).
-   Up to 32 * 32 blocks: 2 level (33 words)
-   Up to 32 * 32 * 32 blocks: 3 levels (1 + 32 + 1024 words)
-
-   # of levels: MSB / 5 + !!(MSB & 5)
-*/
-
-static inline int
-bittree_get_levels (unsigned int size)
-{
-  int msb = __msb32 (size) - 1;
-
-  return msb / 5 + !!(msb % 5);
-}
-
-static inline int
-bittree_get_bitmap_size (unsigned int levels)
-{
-  return levels >= 1 ? (1 <<  0) |
-        (levels >= 2 ? (1 <<  5) |
-        (levels >= 3 ? (1 << 10) |
-        (levels >= 4 ? (1 << 15) |
-        (levels >= 5 ? (1 << 20) |
-        (levels >= 6 ? (1 << 25) |
-        (levels >= 7 ? (1 << 30)
-        : 0) : 0) : 0) : 0) : 0) : 0) : 0;
-}
-
 unsigned int
 bittree_find (uint32_t *buf, size_t size)
 {
@@ -245,6 +165,9 @@ error_to_string (error_t err)
 
     case ATOMIK_ERROR_REVOKE_FIRST:
       return "Derived objects must be deleted first";
+
+    case ATOMIK_ERROR_INIT_FIRST:
+      return "Object is not initialized yet";
 
     case ATOMIK_ERROR_MAP_FIRST:
       return "Object must be mapped first";

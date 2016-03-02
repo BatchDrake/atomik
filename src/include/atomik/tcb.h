@@ -23,7 +23,6 @@
 #include <machinedefs.h>
 #include <atomik/cap.h>
 
-#define ATOMIK_TCB_SIZE_BITS     7
 #define ATOMIK_SCHED_QUEUE_COUNT 256
 
 enum thread_state

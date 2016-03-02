@@ -77,6 +77,18 @@ ASC_PROTO (cap_get_info)
       SYSCALL_REG (I386_TCB_REG_EDI) = cap->ut.watermark;
       break;
 
+    case ATOMIK_OBJTYPE_POOL:
+      SYSCALL_REG (I386_TCB_REG_EBX) = cap->pool.object_size_bits;
+      SYSCALL_REG (I386_TCB_REG_ECX) =
+        cap->pool.access | (cap->pool.pool_type);
+      SYSCALL_REG (I386_TCB_REG_EDX) =
+        (uint32_t) cap->pool.size;
+      SYSCALL_REG (I386_TCB_REG_ESI) =
+        (uint32_t) cap->pool.base;
+      SYSCALL_REG (I386_TCB_REG_EDX) =
+        (uint32_t) cap->pool.available;
+      break;
+      
     case ATOMIK_OBJTYPE_CNODE:
       SYSCALL_REG (I386_TCB_REG_EBX) = cap->cnode.size_bits;
       SYSCALL_REG (I386_TCB_REG_ECX) =

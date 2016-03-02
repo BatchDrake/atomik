@@ -32,6 +32,11 @@
 #  error Unsupported architecture
 #endif
 
+#define ATOMIK_PAGE_SIZE_BITS PAGE_BITS
+#define ATOMIK_PT_SIZE_BITS   PT_BITS
+#define ATOMIK_PD_SIZE_BITS   PD_BITS
+#define ATOMIK_TCB_SIZE_BITS  7
+
 #define ATOMIK_MIN_UT_SIZE_BITS    ATOMIK_CAPSLOT_SIZE_BITS
 #define ATOMIK_CAPSLOT_SIZE BIT (ATOMIK_CAPSLOT_SIZE_BITS)
 #define ATOMIK_OBJPART_SIZE BIT ((ATOMIK_CAPSLOT_SIZE_BITS - 1))
@@ -69,7 +74,8 @@ enum objtype
   ATOMIK_OBJTYPE_PD,
   ATOMIK_OBJTYPE_ENDPOINT,
   ATOMIK_OBJTYPE_NOTIFICATION,
-  ATOMIK_OBJTYPE_TCB
+  ATOMIK_OBJTYPE_TCB,
+  ATOMIK_OBJTYPE_POOL
 };
 
 typedef enum objtype objtype_t;
@@ -127,6 +133,19 @@ struct capslot
     }
     tcb;
 
+    /* Capability as object pool */
+    struct
+    {
+      objtype_t object_type:8;
+      uint8_t   object_size_bits; /* Refers to each particular object */
+      uint8_t   access;
+      objtype_t pool_type:8; /* Type of the objects within */
+      void     *base; /* Physical address */
+      size_t    size; /* Allocation size in objects (bytes if untyped) */
+      size_t    available; /* Available objects */
+    }
+    pool;
+
 #ifdef __i386__
     /* Capability as page */
     struct
@@ -181,6 +200,17 @@ struct capslot
     }
     ep;
 
+    /* Generic objects (to access common fields) */
+    struct
+    {
+      objtype_t object_type:8;
+      uint8_t   size_bits;
+      uint8_t   access;
+      uint8_t   unused;
+      void     *base;
+    }
+    generic;
+
     uint8_t pad[ATOMIK_OBJPART_SIZE];
   };
 
@@ -219,6 +249,54 @@ struct caplookup_exception_info
   uint8_t guard_bits;
 };
 
+static inline error_t
+__atomik_objtype_adjust_size_bits (objtype_t type, unsigned int *size_bits)
+{
+  error_t exception = ATOMIK_SUCCESS;
+
+  switch (type)
+  {
+    case ATOMIK_OBJTYPE_UNTYPED:
+      if (*size_bits < ATOMIK_MIN_UT_SIZE_BITS)
+        ATOMIK_FAIL (ATOMIK_ERROR_INVALID_SIZE);
+      break;
+
+    case ATOMIK_OBJTYPE_CNODE:
+      *size_bits += ATOMIK_CAPSLOT_SIZE_BITS;
+      break;
+
+    case ATOMIK_OBJTYPE_PAGE:
+      *size_bits = ATOMIK_PAGE_SIZE_BITS;
+      break;
+
+    case ATOMIK_OBJTYPE_PD:
+      *size_bits = ATOMIK_PD_SIZE_BITS;
+      break;
+
+    case ATOMIK_OBJTYPE_PT:
+      *size_bits = ATOMIK_PT_SIZE_BITS;
+      break;
+
+    case ATOMIK_OBJTYPE_TCB:
+      *size_bits = ATOMIK_TCB_SIZE_BITS;
+      break;
+
+    case ATOMIK_OBJTYPE_ENDPOINT:
+      *size_bits = 2;
+      break;
+
+    case ATOMIK_OBJTYPE_POOL:
+      break;
+      
+    default:
+      ATOMIK_FAIL (ATOMIK_ERROR_INVALID_TYPE);
+  }
+
+fail:
+
+  return exception;
+}
+
 /*
  * System calls
  */
@@ -239,10 +317,16 @@ int atomik_capslot_drop (capslot_t *, uint8_t);
 /*
  * Convenience functions
  */
+error_t capslot_init (capslot_t *, objtype_t, size_t, uint8_t, void *);
+
+void capslot_add_child (capslot_t *, capslot_t *);
+
 capslot_t *capslot_cspace_resolve (capslot_t *, cptr_t, unsigned char, struct caplookup_exception_info *);
 
 void capslot_clear (capslot_t *);
 
 void capabilities_init (capslot_t *);
+
+error_t pool_free (capslot_t *, void *);
 
 #endif /* _ATOMIK_CAP_H */
