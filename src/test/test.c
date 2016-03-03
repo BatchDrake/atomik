@@ -511,6 +511,122 @@ test_cdt_ops (struct atomik_test_env *env)
   return ATOMIK_SUCCESS;
 }
 
+static error_t
+test_pool_ops (struct atomik_test_env *env)
+{
+  error_t exception = ATOMIK_SUCCESS;
+  capslot_t *pool_ut = NULL;
+  capslot_t *cnode_ut = NULL;
+  capslot_t pool = capslot_t_INITIALIZER;
+  capslot_t cnode = capslot_t_INITIALIZER;
+
+  capslot_t *page, *prev;
+  void *prev_base;
+  unsigned int i;
+  int err;
+  
+  /* I am going to allocate a pool big enough */
+  pool_ut = test_find_small_ut (
+    env->root,
+    ATOMIK_PAGE_SIZE_BITS + 12);
+  
+  ATOMIK_TEST_ASSERT (pool_ut != NULL);
+
+  /* Allocate pool */
+  ATOMIK_TEST_ASSERT_SUCCESS (
+      -atomik_untyped_retype (
+        pool_ut,
+        ATOMIK_OBJTYPE_POOL,
+        ATOMIK_PAGE_SIZE_BITS + 12,
+        &pool,
+        1));
+
+  /* Allocate CNode of 4096 entries */
+  cnode_ut = test_find_small_ut (
+    env->root,
+    ATOMIK_CAPSLOT_SIZE_BITS + 12);
+
+  ATOMIK_TEST_ASSERT (cnode_ut != NULL);
+
+  ATOMIK_TEST_ASSERT_SUCCESS (
+    -atomik_untyped_retype (
+      cnode_ut,
+      ATOMIK_OBJTYPE_CNODE,
+      12, /* Cnode of 12 entries */
+      &cnode,
+      1));
+
+  debug (env, "Objects retyped, testing use cases...\n");
+  
+  /* We shouldn't be able to allocate objects at
+     this point */
+  err = atomik_pool_alloc (&pool, CNODE_BASE (&cnode));
+
+  ATOMIK_ASSERT (err != -ATOMIK_SUCCESS);
+  ATOMIK_ASSERT (err == -ATOMIK_ERROR_INIT_FIRST);
+
+  debug (env, "Retyping pool...\n");
+  
+  /* This should work: pool isn't retyped yet  */
+  ATOMIK_TEST_ASSERT_SUCCESS (
+    -atomik_pool_retype (&pool, ATOMIK_OBJTYPE_PAGE, 0));
+
+  debug (env, "Testing double retype (it should fail)...\n");
+  
+  /* This shouldn't work: we cannot retype a pool twice */
+  err = atomik_pool_retype (&pool, ATOMIK_OBJTYPE_PAGE, 0);
+
+  ATOMIK_ASSERT (err != -ATOMIK_SUCCESS);
+  ATOMIK_ASSERT (err == -ATOMIK_ERROR_DELETE_FIRST);
+
+  debug (env, "Allocating 3000 pages...\n");
+  
+  /* Start to allocate pages */
+  for (i = 0; i < 3000; ++i)
+    ATOMIK_TEST_ASSERT_SUCCESS (
+      atomik_pool_alloc (&pool, CNODE_BASE (&cnode) + i));
+
+  prev_base = PAGE_BASE (CNODE_BASE (&cnode) + 1500);
+  debug (env, "Done, cap 1500 @ %p\n", prev_base);
+  
+  /* Delete one */
+  ATOMIK_TEST_ASSERT_SUCCESS (
+    -atomik_capslot_delete (CNODE_BASE (&cnode) + 1500));
+
+  /* Reallocate */
+  ATOMIK_TEST_ASSERT_SUCCESS (
+    -atomik_pool_alloc (&pool, CNODE_BASE (&cnode) + 1500));
+    
+  /* Check whether we've allocated it in the previous
+     address */
+  ATOMIK_TEST_ASSERT (
+    PAGE_BASE (CNODE_BASE (&cnode) + 1500) == prev_base);
+
+  /* Revoke everything */
+  ATOMIK_TEST_ASSERT_SUCCESS (
+    -atomik_capslot_revoke (pool_ut));
+
+  pool_ut = NULL;
+  
+  ATOMIK_TEST_ASSERT_SUCCESS (
+    -atomik_capslot_revoke (cnode_ut));
+
+  cnode_ut = NULL;
+
+  ATOMIK_TEST_ASSERT (pool.object_type  == ATOMIK_OBJTYPE_NULL);
+
+  ATOMIK_TEST_ASSERT (cnode.object_type == ATOMIK_OBJTYPE_NULL);
+  
+fail:
+  if (pool_ut != NULL)
+    (void) atomik_capslot_revoke (pool_ut);
+
+  if (cnode_ut != NULL)
+    (void) atomik_capslot_revoke (cnode_ut);
+  
+  return exception;
+}
+
 struct atomik_test test_list[] =
     {
         {"ut_coverage",   test_ut_coverage},
@@ -519,6 +635,7 @@ struct atomik_test test_list[] =
         {"vspace_paging", test_vspace_paging},
         {"vspace_switch", test_vspace_switch},
         {"cdt_ops",       test_cdt_ops},
+        {"test_pool_ops", test_pool_ops},
         {NULL, NULL}
     };
 

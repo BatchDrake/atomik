@@ -18,6 +18,7 @@
 
 #include <alltypes.h>
 #include <util.h>
+#include <stdio.h>
 
 unsigned int
 bittree_find (uint32_t *buf, size_t size)
@@ -27,7 +28,7 @@ bittree_find (uint32_t *buf, size_t size)
   uint32_t *node = buf;
   int level = 0;
   int lsb = 0;
-
+  
   if (*node == BITTREE_FULL_NODE)
     return -1;
 
@@ -41,7 +42,7 @@ bittree_find (uint32_t *buf, size_t size)
 
     if (result > size)
       return -1;
-
+    
     /* Advance in tree: skip all nodes in this level */
     node += 1 << (5 * level++);
   }

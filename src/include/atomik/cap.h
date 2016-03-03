@@ -64,6 +64,12 @@
 #define CNODE_GUARD(cnodep) (cnodep)->cnode.guard
 #define CNODE_GUARD_BITS(cnodep) (cnodep)->cnode.guard_bits
 
+#define POOL_BASE(poolp) (poolp)->pool.base
+
+#define PAGE_BASE(pagep) (pagep)->page.base
+
+#define capslot_t_INITIALIZER \
+  { ATOMIK_OBJTYPE_NULL }
 enum objtype
 {
   ATOMIK_OBJTYPE_NULL,
@@ -313,6 +319,10 @@ int atomik_capslot_delete (capslot_t *);
 int atomik_capslot_revoke (capslot_t *);
 
 int atomik_capslot_drop (capslot_t *, uint8_t);
+
+int atomik_pool_retype (capslot_t *, objtype_t, unsigned int);
+
+int atomik_pool_alloc (capslot_t *, capslot_t *);
 
 /*
  * Convenience functions

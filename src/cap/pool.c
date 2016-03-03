@@ -31,6 +31,7 @@ int
 atomik_pool_retype (capslot_t *cap, objtype_t type, unsigned int size_bits)
 {
   error_t exception = ATOMIK_SUCCESS;
+  int levels;
   size_t obj_size;
   size_t pool_objcount;
   size_t bitmap_size;
@@ -63,14 +64,19 @@ atomik_pool_retype (capslot_t *cap, objtype_t type, unsigned int size_bits)
 
   obj_size = BIT (size_bits);
   pool_objcount = cap->pool.size >> size_bits;
-  bitmap_size = sizeof (uint32_t) * bittree_get_bitmap_size (pool_objcount);
-  bitmap_objcount = __ALIGN (bitmap_size, obj_size);
+  levels = bittree_get_levels (pool_objcount);
+  bitmap_size = sizeof (uint32_t) * bittree_get_bitmap_size (levels);
+  bitmap_objcount = __UNITS (bitmap_size, obj_size);
 
   if (type != ATOMIK_OBJTYPE_PAGE)
-      if (!__atomik_phys_is_remappable (cap->pool.base, cap->pool.size))
-        ATOMIK_FAIL (ATOMIK_ERROR_PAGES_ONLY);
+    if (!__atomik_phys_is_remappable (POOL_BASE (cap), cap->pool.size))
+      ATOMIK_FAIL (ATOMIK_ERROR_PAGES_ONLY);
 
-  memset (cap, 0, bitmap_size);
+  /* FIXME: DANGEROUS. REMAP WHEN NECESSARY */
+  memset (
+    __atomik_phys_to_remap ((uintptr_t) POOL_BASE (cap)),
+    0,
+    bitmap_size);
 
   /* Mark the first free as sed */
   for (i = 0; i < bitmap_objcount; ++i)
@@ -95,7 +101,7 @@ atomik_pool_alloc (capslot_t *cap, capslot_t *dest)
   unsigned int index;
 
   if (cap->pool.pool_type == ATOMIK_OBJTYPE_NULL)
-    ATOMIK_FAIL (ATOMIK_ERROR_DELETE_FIRST);
+    ATOMIK_FAIL (ATOMIK_ERROR_INIT_FIRST);
 
   if (cap->pool.available == 0)
     ATOMIK_FAIL (ATOMIK_ERROR_NOT_ENOUGH_MEMORY);
