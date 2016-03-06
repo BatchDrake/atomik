@@ -322,7 +322,7 @@ int atomik_capslot_drop (capslot_t *, uint8_t);
 
 int atomik_pool_retype (capslot_t *, objtype_t, unsigned int);
 
-int atomik_pool_alloc (capslot_t *, capslot_t *);
+int atomik_pool_alloc (capslot_t *, capslot_t *, size_t);
 
 /*
  * Convenience functions

@@ -4,7 +4,7 @@
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
- *    the Free Software Foundation, either version 3 of the License, or
+ *    the Free Software Foundation, either version 3 of the License, oru
  *    (at your option) any later version.
  *
  *    This program is distributed in the hope that it will be useful,
@@ -92,20 +92,21 @@ fail:
   return -exception;
 }
 
-int
-atomik_pool_alloc (capslot_t *cap, capslot_t *dest)
+static error_t
+pool_alloc (capslot_t *cap, capslot_t *dest, size_t count)
 {
   error_t exception = ATOMIK_SUCCESS;
   uint32_t *root;
   void *addr;
   unsigned int index;
-
+  unsigned int i;
+  
   if (cap->pool.pool_type == ATOMIK_OBJTYPE_NULL)
     ATOMIK_FAIL (ATOMIK_ERROR_INIT_FIRST);
 
-  if (cap->pool.available == 0)
+  if (cap->pool.available < count)
     ATOMIK_FAIL (ATOMIK_ERROR_NOT_ENOUGH_MEMORY);
-
+  
   /*
    * FIXME!!! This will fail miserably if the object pool is not
    * remappable. We need to maintain a kernel-level remap for this
@@ -114,30 +115,51 @@ atomik_pool_alloc (capslot_t *cap, capslot_t *dest)
    */
   root = __atomik_phys_to_remap ((uintptr_t) cap->pool.base);
 
-  index = bittree_find (root, cap->pool.size);
+  for (i = 0; i < count; ++i)
+  {
+    if (dest[i].object_type != ATOMIK_OBJTYPE_NULL)
+      ATOMIK_FAIL (ATOMIK_ERROR_DELETE_FIRST);
 
-  ATOMIK_ASSERT (index != -1);
+    index = bittree_find (root, cap->pool.size);
 
-  addr = (index << cap->pool.object_size_bits) + (uint8_t *) cap->pool.base;
+    ATOMIK_ASSERT (index != -1);
 
-  /* Init capslot */
-  if ((exception = capslot_init (
-      dest,
-      cap->pool.pool_type,
-      cap->pool.object_size_bits,
-      cap->pool.access,
-      addr)) != ATOMIK_SUCCESS)
-    goto fail;
+    addr = (index << cap->pool.object_size_bits) + (uint8_t *) cap->pool.base;
 
-  /* Update MDB */
-  capslot_add_child (cap, dest);
+    /* Init capslot */
+    if ((exception = capslot_init (
+           &dest[i],
+           cap->pool.pool_type,
+           cap->pool.object_size_bits,
+           cap->pool.access,
+           addr)) != ATOMIK_SUCCESS)
+      goto fail;
 
-  /* Mark this object as busy */
-  bittree_mark (root, cap->pool.size, index);
+    /* Update MDB */
+    capslot_add_child (cap, &dest[i]);
 
-  /* Decrement object count */
-  --cap->pool.available;
+    /* Mark this object as busy */
+    bittree_mark (root, cap->pool.size, index);
+    
+    /* Decrement object count */
+    --cap->pool.available;
+  }  
+  
+fail:
+  return exception;
+}
 
+/* TODO: add ability to allocate several objects in a row */
+int
+atomik_pool_alloc (capslot_t *cap, capslot_t *dest, size_t count)
+{
+  error_t exception = ATOMIK_SUCCESS;
+
+  if (cap->object_type != ATOMIK_OBJTYPE_POOL)
+    ATOMIK_FAIL (ATOMIK_ERROR_INVALID_CAPABILITY);
+
+  exception = pool_alloc (cap, dest, count);
+  
 fail:
     return -exception;
 }

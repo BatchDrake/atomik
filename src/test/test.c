@@ -560,7 +560,7 @@ test_pool_ops (struct atomik_test_env *env)
   
   /* We shouldn't be able to allocate objects at
      this point */
-  err = atomik_pool_alloc (&pool, CNODE_BASE (&cnode));
+  err = atomik_pool_alloc (&pool, CNODE_BASE (&cnode), 1);
 
   ATOMIK_ASSERT (err != -ATOMIK_SUCCESS);
   ATOMIK_ASSERT (err == -ATOMIK_ERROR_INIT_FIRST);
@@ -582,9 +582,8 @@ test_pool_ops (struct atomik_test_env *env)
   debug (env, "Allocating 3000 pages...\n");
   
   /* Start to allocate pages */
-  for (i = 0; i < 3000; ++i)
-    ATOMIK_TEST_ASSERT_SUCCESS (
-      atomik_pool_alloc (&pool, CNODE_BASE (&cnode) + i));
+  ATOMIK_TEST_ASSERT_SUCCESS (
+    -atomik_pool_alloc (&pool, CNODE_BASE (&cnode), 3000));
 
   prev_base = PAGE_BASE (CNODE_BASE (&cnode) + 1500);
   debug (env, "Done, cap 1500 @ %p\n", prev_base);
@@ -595,7 +594,7 @@ test_pool_ops (struct atomik_test_env *env)
 
   /* Reallocate */
   ATOMIK_TEST_ASSERT_SUCCESS (
-    -atomik_pool_alloc (&pool, CNODE_BASE (&cnode) + 1500));
+    -atomik_pool_alloc (&pool, CNODE_BASE (&cnode) + 1500, 1));
     
   /* Check whether we've allocated it in the previous
      address */
