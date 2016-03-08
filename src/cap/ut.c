@@ -119,7 +119,7 @@ atomik_untyped_retype (
         type,
         size_bits,
         ut->ut.access,
-        (uintptr_t) ut->ut.base + watermark)) != ATOMIK_SUCCESS)
+        (void *) ((uintptr_t) ut->ut.base + watermark))) != ATOMIK_SUCCESS)
       goto fail;
 
     capslot_add_child (ut, &destination[i]);
