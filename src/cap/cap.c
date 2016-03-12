@@ -334,7 +334,11 @@ atomik_capslot_delete (capslot_t *slot)
 
     ATOMIK_ASSERT (exception == ATOMIK_SUCCESS);
   }
+  else if (parent->object_type == ATOMIK_OBJTYPE_CNODE)
+  {
+    /* TODO: Trigger cleanup of the CNode */
 
+  }
   /* TODO: FOR SECURITY: PERFORM MEMORY CLEANUP OF
    * BIG OBJECTS. */
 

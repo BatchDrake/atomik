@@ -146,32 +146,6 @@ __msb32 (uint32_t word)
   return r + msbs[word];
 }
 
-static inline int
-bittree_get_levels (unsigned int size)
-{
-  int msb = __msb32 (size) - 1;
-
-  return msb / 5 + !!(msb % 5);
-}
-
-static inline int
-bittree_get_bitmap_size (unsigned int levels)
-{
-  return levels >= 1 ? (1 <<  0) |
-        (levels >= 2 ? (1 <<  5) |
-        (levels >= 3 ? (1 << 10) |
-        (levels >= 4 ? (1 << 15) |
-        (levels >= 5 ? (1 << 20) |
-        (levels >= 6 ? (1 << 25) |
-        (levels >= 7 ? (1 << 30)
-        : 0) : 0) : 0) : 0) : 0) : 0) : 0;
-}
-
-unsigned int bittree_find (uint32_t *, size_t);
-
-void bittree_mark (uint32_t *, size_t, unsigned int);
-
-void bittree_unmark (uint32_t *, size_t, unsigned int);
 
 /*
  * General utility functions
