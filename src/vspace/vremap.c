@@ -46,6 +46,12 @@ vremap_translate (const vremap_t *vremap, uintptr_t phys, size_t size)
       phys + size > vremap->phys_start + vremap->virt_len)
     return NULL;
 
+  /* Kernel remap starts somewhere else */
+  ATOMIK_ASSERT (!vremap->force || !vremap->is_remap);
+  
+  if (vremap->is_remap)
+    return __atomik_phys_to_remap (phys);
+
   return (void *) (phys - vremap->phys_start + vremap->virt_start);
 }
 
@@ -56,51 +62,61 @@ vremap_remap (vremap_t *vremap, uintptr_t phys, size_t size)
   uintptr_t pt, pt_prev;
   uintptr_t page;
   unsigned int i;
-
   
   /* Does it fit? */
   if (size > vremap->virt_max)
     return -1;
 
-  vremap->phys_start = phys & PAGE_MASK;
-  vremap->virt_len = size + (phys - vremap->phys_start);
-  vremap->virt_pages = __UNITS (size, PAGE_SIZE);
+  vremap->phys_start = PAGE_START (phys);
+  vremap->virt_len   = size + PAGE_OFFSET (phys);
+  vremap->virt_pages = __UNITS (vremap->virt_len, PAGE_SIZE);
+  vremap->is_remap   = !vremap->force &&
+    __atomik_phys_is_remappable ((void *) phys, size);
 
-  pt_prev = -1; /* We will never reach this value */
-  
-  for (i = 0; i < vremap->virt_pages; ++i)
+  /* If this physical address is outside the kernel
+   * remap we must update microkernel pages */
+  if (!vremap->is_remap)
   {
-    page = vremap->virt_start + PAGE_ADDRESS (i);
-    pt = VADDR_GET_PDE_INDEX (page - KERNEL_VREMAP_BASE);
-
-    if (pt != pt_prev)
+    pt_prev = -1; /* We will never reach this value */
+  
+    for (i = 0; i < vremap->virt_pages; ++i)
     {
-      /* Ensure we have mapped this PT */
-      __arch_map_pagetable (
-        curr_vspace,
+      page = vremap->virt_start + PAGE_ADDRESS (i);
+      pt = VADDR_GET_PDE_INDEX (page - KERNEL_VREMAP_BASE);
+
+      if (pt != pt_prev)
+      {
+        /* Ensure we have mapped this PT */
+        __arch_map_pagetable (
+          curr_vspace,
+          &vremap_pts[pt],
+          page,
+          ATOMIK_PAGEATTR_WRITABLE |
+          ATOMIK_PAGEATTR_PRESENT  |
+          ATOMIK_PAGEATTR_KERNEL);
+
+        pt_prev = pt;
+      }
+
+      /* Map page */
+      __arch_map_page (
         &vremap_pts[pt],
+        (void *) (vremap->phys_start + PAGE_ADDRESS (i)),
         page,
-        ATOMIK_PAGEATTR_WRITABLE | ATOMIK_PAGEATTR_PRESENT);
+        ATOMIK_PAGEATTR_WRITABLE |
+        ATOMIK_PAGEATTR_PRESENT  |
+        ATOMIK_PAGEATTR_KERNEL);
 
-      pt_prev = pt;
+      /* Invalidate */
+      __arch_invalidate_page ((void *) page);
     }
-
-    /* Map page */
-    __arch_map_page (
-      &vremap_pts[pt],
-      (void *) (vremap->phys_start + PAGE_ADDRESS (i)),
-      page,
-      ATOMIK_PAGEATTR_WRITABLE | ATOMIK_PAGEATTR_PRESENT);
-
-    /* Invalidate */
-    __arch_invalidate_page ((void *) page);
   }
-
+  
   return 0;
 }
 
 int
-vremap_alloc (vremap_t *vremap, size_t size)
+vremap_alloc_ex (vremap_t *vremap, size_t size, int force)
 {
   size_t aligned_size;
 
@@ -110,11 +126,17 @@ vremap_alloc (vremap_t *vremap, size_t size)
     return -1;
 
   vremap->virt_start = KERNEL_VREMAP_BASE + vremap_watermark;
-  vremap->virt_max  = size;
-  vremap->virt_len  = 0;
+  vremap->virt_max   = size;
+  vremap->virt_len   = 0;
   vremap->virt_pages = 0;
-
-  vremap_watermark += aligned_size;
+  vremap->force      = force;
+  vremap_watermark  += aligned_size;
   
   return 0;
+}
+
+int
+vremap_alloc (vremap_t *vremap, size_t size)
+{
+  return vremap_alloc_ex (vremap, size, 0);
 }

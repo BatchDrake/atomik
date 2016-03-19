@@ -32,11 +32,29 @@
 
 struct vremap
 {
+  /* Virtual address of the remap */
   uintptr_t virt_start;
+
+  /* Physical address of the remap */
   uintptr_t phys_start;
+
+  /* Max virtual size of the remap */
   size_t    virt_max;
+
+  /* Used length of the remap */
   size_t    virt_len;
+
+  /* Pages used */
   size_t    virt_pages;
+
+  /* If this physical address is already remapped by
+   * the kernel remap, we signal it that way and avoid
+   * invalidating any page */
+  int       is_remap; 
+
+  /* Force vremapping even if the physical address is
+   * remapped by the kernel remap */
+  int       force;
 };
 
 typedef struct vremap vremap_t;
@@ -53,23 +71,47 @@ extern size_t atomik_free_size;
 extern void  *atomik_remap_start;
 extern size_t atomik_remap_size;
 
+extern void  *kernel_virt_start;
+extern void  *kernel_phys_start;
+extern size_t kernel_size;
+
+static inline int
+__atomik_is_kernel_phys (uintptr_t addr)
+{
+  return addr >= (uintptr_t) kernel_phys_start &&
+    addr < (uintptr_t) kernel_phys_start + kernel_size;
+}
+
+static inline int
+__atomik_is_kernel_virt (void *addr)
+{
+  return (uintptr_t) addr >= (uintptr_t) kernel_virt_start &&
+    (uintptr_t) addr < (uintptr_t) kernel_virt_start + kernel_size;
+}
+
 static inline void *
 __atomik_phys_to_remap (uintptr_t addr)
 {
-  return (void *) (addr - (uintptr_t) atomik_free_start + (uintptr_t) atomik_remap_start);
+  if (__atomik_is_kernel_phys (addr))
+    return (void *) (addr - (uintptr_t) kernel_phys_start + (uintptr_t) kernel_virt_start);
+  else
+    return (void *) (addr - (uintptr_t) atomik_free_start + (uintptr_t) atomik_remap_start);
 }
 
 static inline uintptr_t
 __atomik_remap_to_phys (void *addr)
 {
-  return (uintptr_t) addr + (uintptr_t) atomik_free_start - (uintptr_t) atomik_remap_start;
+  if (__atomik_is_kernel_virt (addr))
+    return (uintptr_t) addr - (uintptr_t) kernel_virt_start + (uintptr_t) kernel_phys_start;
+  else
+    return (uintptr_t) addr + (uintptr_t) atomik_free_start - (uintptr_t) atomik_remap_start;
 }
 
 static inline int
 __atomik_phys_is_remappable (void *addr, size_t size)
 {
   return ((uintptr_t) addr - (uintptr_t) atomik_free_start) +
-        size <= atomik_remap_size;
+    size <= atomik_remap_size || __atomik_is_kernel_phys ((uintptr_t) addr);
 }
 
 static inline uintptr_t
@@ -110,15 +152,17 @@ __atomik_capslot_to_page_attr (const capslot_t *page)
 {
   return __atomik_access_to_page_attr (page->page.access);
 }
+
 /*
  * VRemap API
  */
-
 void *vremap_translate (const vremap_t *, uintptr_t, size_t);
 
-int  vremap_remap (vremap_t *, uintptr_t, size_t);
+int   vremap_remap (vremap_t *, uintptr_t, size_t);
 
-int vremap_alloc (vremap_t *, size_t);
+int   vremap_alloc (vremap_t *, size_t);
+
+int   vremap_alloc_ex (vremap_t *, size_t, int);
 
 /*
  * System calls

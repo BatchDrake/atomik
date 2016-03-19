@@ -97,8 +97,7 @@ atomik_untyped_retype (
    * page frames.
    */
   if (type != ATOMIK_OBJTYPE_PAGE &&
-      type != ATOMIK_OBJTYPE_UNTYPED &&
-      type != ATOMIK_OBJTYPE_POOL)
+      type != ATOMIK_OBJTYPE_UNTYPED)
     if (!__atomik_phys_is_remappable (ut->ut.base, total_size))
       ATOMIK_FAIL (ATOMIK_ERROR_PAGES_ONLY);
 

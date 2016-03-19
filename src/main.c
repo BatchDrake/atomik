@@ -37,6 +37,8 @@ main (void *root_task_base, size_t root_task_size)
   
   capabilities_init (&root);
 
+  pool_init ();
+  
   if (run_tests (&root) != ATOMIK_SUCCESS)
     __arch_machine_halt ();
 

@@ -339,4 +339,6 @@ void capabilities_init (capslot_t *);
 
 error_t pool_free (capslot_t *, void *);
 
+void pool_init (void);
+
 #endif /* _ATOMIK_CAP_H */

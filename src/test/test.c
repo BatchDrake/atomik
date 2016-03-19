@@ -593,6 +593,7 @@ test_pool_ops (struct atomik_test_env *env)
     -atomik_capslot_delete (CNODE_BASE (&cnode) + 1500));
 
   /* Reallocate */
+  debug (env, "Reallocating in pool...\n");
   ATOMIK_TEST_ASSERT_SUCCESS (
     -atomik_pool_alloc (&pool, CNODE_BASE (&cnode) + 1500, 1));
     
@@ -601,11 +602,18 @@ test_pool_ops (struct atomik_test_env *env)
   ATOMIK_TEST_ASSERT (
     PAGE_BASE (CNODE_BASE (&cnode) + 1500) == prev_base);
 
-  /* Revoke everything */
+  /* Revoke everything. Note this operation is SLOW.
+     This slowness can be bypassed if we wrote a special
+     callbck for pool revoke operations: Delete all
+     derived caps & remove (trivial), and reinit the
+     whole pool. */
+  debug (env, "Revoking pool...\n");
   ATOMIK_TEST_ASSERT_SUCCESS (
     -atomik_capslot_revoke (pool_ut));
 
   pool_ut = NULL;
+
+  debug (env, "Revoking CNode...\n");
   
   ATOMIK_TEST_ASSERT_SUCCESS (
     -atomik_capslot_revoke (cnode_ut));
@@ -629,16 +637,26 @@ fail:
 static vremap_t test_vremap;
 
 static error_t
-test_vremap_ops (struct atomik_test_env *env)
+__test_vremap_ops (struct atomik_test_env *env, int force)
 {
   error_t exception = ATOMIK_SUCCESS;
   static char test_string[] = "VRemap test string!";
   const char *ptr;
+  uintptr_t phys;
   
   ATOMIK_TEST_ASSERT (
-    vremap_alloc (&test_vremap, sizeof (test_string)) != -1);
+    vremap_alloc_ex (&test_vremap, sizeof (test_string), force) != -1);
 
   debug (env, "Allocated vremap @ %p\n", test_vremap.virt_start);
+
+  phys = __atomik_remap_to_phys (test_string);
+
+  debug (env, "Phys addr: %p\n", phys);
+  
+  ATOMIK_TEST_ASSERT (
+    __atomik_phys_is_remappable (
+      (void *) phys,
+      sizeof (test_string)));
   
   ATOMIK_TEST_ASSERT (
     vremap_remap (
@@ -651,26 +669,44 @@ test_vremap_ops (struct atomik_test_env *env)
       &test_vremap,
       __atomik_remap_to_phys (test_string),
       sizeof (test_string))) != NULL);
-  
-  debug (env, "Original string ap %p\n", test_string);
+
+  ATOMIK_TEST_ASSERT (test_vremap.force == force);
+
+  debug (env, "Original string at %p\n", test_string);
   debug (env, "Translated string at %p\n", ptr);
 
-  ATOMIK_TEST_ASSERT (strcmp (ptr, test_string) == 0);
+  if (!force)
+    ATOMIK_TEST_ASSERT (ptr == test_string)
+  else
+    ATOMIK_TEST_ASSERT (strcmp (ptr, test_string) == 0);
 
 fail:
   return exception;
 }
 
+static error_t
+test_vremap_ops_force (struct atomik_test_env *env)
+{
+  return __test_vremap_ops (env, 1);
+}
+
+static error_t
+test_vremap_ops_remap (struct atomik_test_env *env)
+{
+  return __test_vremap_ops (env, 0);
+}
+
 struct atomik_test test_list[] =
     {
-        {"ut_coverage",     test_ut_coverage},
-        {"ut_retype",       test_ut_retype},
-        {"vspace",          test_vspace},
-        {"vspace_paging",   test_vspace_paging},
-        {"vspace_switch",   test_vspace_switch},
-        {"cdt_ops",         test_cdt_ops},
-        {"test_pool_ops",   test_pool_ops},
-        {"test_vremap_ops", test_vremap_ops},
+        {"ut_coverage",           test_ut_coverage},
+        {"ut_retype",             test_ut_retype},
+        {"vspace",                test_vspace},
+        {"vspace_paging",         test_vspace_paging},
+        {"vspace_switch",         test_vspace_switch},
+        {"cdt_ops",               test_cdt_ops},
+        {"test_pool_ops",         test_pool_ops},
+        {"test_vremap_ops_force", test_vremap_ops_force},
+        {"test_vremap_ops_remap", test_vremap_ops_remap},
         {NULL, NULL}
     };
 

@@ -26,6 +26,16 @@
 #include <atomik/cap.h>
 #include <atomik/vspace.h>
 
+#define POOL_META_VREMAP_BUDDY_NEW  0
+#define POOL_META_VREMAP_BUDDY_PREV 1
+#define POOL_META_VREMAP_BUDDY_NEXT 2
+#define POOL_META_VREMAP_BITMAP     3
+
+#define POOL_META_VREMAPS           4
+
+static vremap_t pool_head_vr;    /* 1 page */
+static vremap_t pool_meta_vr[POOL_META_VREMAPS]; /* 1 page each */
+
 /* How to implement the buddy allocator:
  *
  * 1. Create a struct pool_state with all the temporary
@@ -47,7 +57,7 @@ struct pool_state
 {
   void    *base;              /* P */
   void    *blocks;            /* P */
-  uint8_t *bitmap;            /* V */
+  uint8_t *bitmap;            /* P */
   struct buddyhdr **freelist; /* V */
 
   uint8_t levels;
@@ -57,6 +67,35 @@ struct pool_state
   size_t size;
   size_t available;
 };
+
+/* We can do this because all structures are aligned
+   to size */
+
+static inline void *
+pool_translate (vremap_t *vremap, void *phys_p)
+{
+  uintptr_t phys = PAGE_START ((uintptr_t) phys_p);
+  uintptr_t off  = PAGE_OFFSET ((uintptr_t) phys_p);
+
+  if (phys != vremap->phys_start)
+    ATOMIK_ASSERT (vremap_remap (vremap, phys, PAGE_SIZE) != -1);
+
+  return vremap_translate (vremap,
+                           (uintptr_t) phys_p,
+                           PAGE_SIZE - off);
+}
+
+static inline void *
+pool_translate_meta (void *phys_p, int which)
+{
+  return pool_translate (&pool_meta_vr[which], phys_p);
+}
+
+static inline void *
+pool_translate_head (void *phys_p)
+{
+  return pool_translate (&pool_head_vr, phys_p);
+}
 
 static inline uint8_t
 __get_bits (size_t size)
@@ -99,13 +138,14 @@ __poolcap_get_metadata_size (const capslot_t *cap)
 static inline void
 __pool_state_init (struct pool_state *state, const capslot_t *cap)
 {
-  size_t *meta_size  = __atomik_phys_to_remap ((uintptr_t) cap->pool.base);
+  size_t *meta_size  = pool_translate_head (cap->pool.base);
 
   state->base        = cap->pool.base;
-  state->freelist    = __atomik_phys_to_remap (
-                          sizeof (size_t) + (uintptr_t) cap->pool.base);
+  state->freelist    = (struct buddyhdr **) &meta_size[1];
   state->levels      = __get_bits (cap->pool.size);
-  state->bitmap      = (uint8_t *) &state->freelist[state->levels];
+  state->bitmap      =
+    (uint8_t *) ((uintptr_t) state->base +
+                 sizeof (uintptr_t) * (1 + state->levels));
   state->object_size_bits = cap->pool.object_size_bits;
   state->object_size = BIT (state->object_size_bits);
   state->size        = cap->pool.size;
@@ -134,10 +174,13 @@ __pool_toggle_bit (struct pool_state *state, unsigned int index, uint8_t order)
       (index >> order);
   unsigned int byte     = bitindex >> 3;
   unsigned int bit      = bitindex & 7;
-
+  uint8_t *bitmap;
+  
   ATOMIK_ASSERT (index < state->size);
 
-  state->bitmap[byte] ^= BIT (bit);
+  bitmap = pool_translate_meta (&state->bitmap[byte], POOL_META_VREMAP_BITMAP);
+  
+  *bitmap ^= BIT (bit);
 }
 
 static inline int
@@ -150,10 +193,13 @@ __pool_read_bit (
       (index >> order);
   unsigned int byte     = bitindex >> 3;
   unsigned int bit      = bitindex & 7;
-
+  const uint8_t *bitmap;
+  
   ATOMIK_ASSERT (index < state->size);
 
-  return state->bitmap[byte] & BIT (bit);
+  bitmap = pool_translate_meta (&state->bitmap[byte], POOL_META_VREMAP_BITMAP);
+  
+  return *bitmap & BIT (bit);
 }
 
 static inline unsigned int
@@ -179,15 +225,16 @@ __pool_insert_buddy (
   struct buddyhdr *list_head_remap; /* V */
   struct buddyhdr *new_remap;       /* V */
 
-  new_remap = __atomik_phys_to_remap ((uintptr_t) new);
+  new_remap = pool_translate_meta (new, POOL_META_VREMAP_BUDDY_NEW);
 
   new_remap->prev = NULL;
   new_remap->next = state->freelist[order];
 
   if (state->freelist[order] != NULL)
   {
-    list_head_remap =
-        __atomik_phys_to_remap ((uintptr_t) state->freelist[order]);
+    list_head_remap = pool_translate_meta (
+      state->freelist[order],
+      POOL_META_VREMAP_BUDDY_NEXT);
 
     list_head_remap->prev = new;
   }
@@ -204,19 +251,23 @@ __pool_remove_buddy (
   struct buddyhdr *adj_remap; /* V */
   struct buddyhdr *new_remap; /* V */
 
-  new_remap = __atomik_phys_to_remap ((uintptr_t) new);
+  new_remap = pool_translate_meta (new, POOL_META_VREMAP_BUDDY_NEW);
 
   if (new_remap->prev == NULL)
     state->freelist[order] = new_remap->next;
   else
   {
-    adj_remap = __atomik_phys_to_remap ((uintptr_t) new_remap->prev);
+    adj_remap = pool_translate_meta (
+      new_remap->prev,
+      POOL_META_VREMAP_BUDDY_PREV);
     adj_remap->next = new_remap->next;
   }
 
   if (new_remap->next != NULL)
   {
-    adj_remap = __atomik_phys_to_remap ((uintptr_t) new_remap->next);
+    adj_remap = pool_translate_meta (
+      new_remap->next,
+      POOL_META_VREMAP_BUDDY_NEXT);
     adj_remap->prev = new_remap->prev;
   }
 }
@@ -420,7 +471,7 @@ atomik_pool_retype (capslot_t *cap, objtype_t type, unsigned int size_bits)
   cap->pool.object_size_bits = size_bits;
   cap->pool.size = pool_objcount;
 
-  metadata_objs = __atomik_phys_to_remap ((uintptr_t) cap->pool.base);
+  metadata_objs = pool_translate_head (cap->pool.base);
   *metadata_objs = __UNITS (__poolcap_get_metadata_size (cap), obj_size);
 
   cap->pool.available = pool_objcount - *metadata_objs;
@@ -444,7 +495,9 @@ atomik_pool_retype (capslot_t *cap, objtype_t type, unsigned int size_bits)
 
     ATOMIK_ASSERT (state.freelist[order] != NULL);
 
-    freehdr = __atomik_phys_to_remap ((uintptr_t) state.freelist[order]);
+    freehdr = pool_translate_meta (
+      state.freelist[order],
+      POOL_META_VREMAP_BUDDY_NEW);
 
     /* No adjacent blocks */
     freehdr->next = NULL;
@@ -572,3 +625,23 @@ pool_free (capslot_t *cap, void *buf)
   return ATOMIK_SUCCESS;
 }
 
+void
+pool_init (void)
+{
+  unsigned int i;
+
+  for (i = 0; i < POOL_META_VREMAPS; ++i)
+    if (vremap_alloc (&pool_meta_vr[i], PAGE_SIZE) == -1)
+      goto fail;
+
+  if (vremap_alloc (&pool_head_vr, PAGE_SIZE) == -1)
+    goto fail;
+
+  return;
+  
+fail:
+  printf ("atomik: not enough virtual space to allocate pool vremaps\n");
+  printf ("atomik: increase KERNEL_VREMAP_MAX and try again\n");
+
+  __arch_machine_halt ();
+}
