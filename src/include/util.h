@@ -21,6 +21,8 @@
 
 #include <machinedefs.h>
 
+#define BIT(x) (1 << (x))
+
 #define _JOIN(x, y) x ## y
 #define JOIN(x, y) _JOIN (x, y)
 
@@ -48,8 +50,9 @@
 CPPASSERT (PAGE_BITS + PTE_BITS + PDE_BITS == VIRT_ADDR_BITS);
 
 /* Page-related macros */
-#define BIT(x)               (1 << (x))
 #define PAGE_SIZE            BIT (PAGE_BITS)
+#define PT_SIZE              BIT (PT_BITS)
+#define PD_SIZE              BIT (PD_BITS)
 #define PTRANGE_SIZE         BIT (PAGE_BITS + PTE_BITS)
 #define PAGE_CONTROL_MASK    (PAGE_SIZE - 1)
 #define PAGE_MASK            (~PAGE_CONTROL_MASK)

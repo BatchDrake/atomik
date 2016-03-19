@@ -626,15 +626,51 @@ fail:
   return exception;
 }
 
+static vremap_t test_vremap;
+
+static error_t
+test_vremap_ops (struct atomik_test_env *env)
+{
+  error_t exception = ATOMIK_SUCCESS;
+  static char test_string[] = "VRemap test string!";
+  const char *ptr;
+  
+  ATOMIK_TEST_ASSERT (
+    vremap_alloc (&test_vremap, sizeof (test_string)) != -1);
+
+  debug (env, "Allocated vremap @ %p\n", test_vremap.virt_start);
+  
+  ATOMIK_TEST_ASSERT (
+    vremap_remap (
+      &test_vremap,
+      __atomik_remap_to_phys (test_string),
+      sizeof (test_string)) != -1);
+
+  ATOMIK_TEST_ASSERT (
+    (ptr = vremap_translate (
+      &test_vremap,
+      __atomik_remap_to_phys (test_string),
+      sizeof (test_string))) != NULL);
+  
+  debug (env, "Original string ap %p\n", test_string);
+  debug (env, "Translated string at %p\n", ptr);
+
+  ATOMIK_TEST_ASSERT (strcmp (ptr, test_string) == 0);
+
+fail:
+  return exception;
+}
+
 struct atomik_test test_list[] =
     {
-        {"ut_coverage",   test_ut_coverage},
-        {"ut_retype",     test_ut_retype},
-        {"vspace",        test_vspace},
-        {"vspace_paging", test_vspace_paging},
-        {"vspace_switch", test_vspace_switch},
-        {"cdt_ops",       test_cdt_ops},
-        {"test_pool_ops", test_pool_ops},
+        {"ut_coverage",     test_ut_coverage},
+        {"ut_retype",       test_ut_retype},
+        {"vspace",          test_vspace},
+        {"vspace_paging",   test_vspace_paging},
+        {"vspace_switch",   test_vspace_switch},
+        {"cdt_ops",         test_cdt_ops},
+        {"test_pool_ops",   test_pool_ops},
+        {"test_vremap_ops", test_vremap_ops},
         {NULL, NULL}
     };
 

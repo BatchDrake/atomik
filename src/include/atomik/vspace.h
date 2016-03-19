@@ -30,8 +30,20 @@
 
 #define ATOMIK_INVALID_ADDR ((uintptr_t) -1)
 
+struct vremap
+{
+  uintptr_t virt_start;
+  uintptr_t phys_start;
+  size_t    virt_max;
+  size_t    virt_len;
+  size_t    virt_pages;
+};
 
-/* These pointers are required in order to remap lowmem
+typedef struct vremap vremap_t;
+
+typedef uint8_t ptbuf_t[PT_SIZE];
+/*
+ * These pointers are required in order to remap lowmem
  * addresses into kernel addresses.
  */
 
@@ -98,6 +110,15 @@ __atomik_capslot_to_page_attr (const capslot_t *page)
 {
   return __atomik_access_to_page_attr (page->page.access);
 }
+/*
+ * VRemap API
+ */
+
+void *vremap_translate (const vremap_t *, uintptr_t, size_t);
+
+int  vremap_remap (vremap_t *, uintptr_t, size_t);
+
+int vremap_alloc (vremap_t *, size_t);
 
 /*
  * System calls

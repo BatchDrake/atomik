@@ -77,7 +77,7 @@ __arch_get_kernel_remap (void **premap_start, size_t *premap_size)
 void
 __arch_invalidate_page (void *addr)
 {
-  __asm__ __volatile__ ( "invlpg (%0)" : : "b" (addr) : "memory");
+  __asm__ __volatile__ ( "invlpg (%0)" : : "r" (addr) : "memory");
 }
 
 void
@@ -87,7 +87,9 @@ __arch_map_page (void *pt, void *frame, uintptr_t vaddr, uint8_t attr)
   uintptr_t x86_phys = (uintptr_t) frame;
   uint8_t   x86_attr = 0;
 
-  if (vaddr < KERNEL_BASE)
+  if (vaddr < KERNEL_BASE ||
+      ((vaddr >= KERNEL_VREMAP_BASE) &&
+       (vaddr < KERNEL_VREMAP_BASE + KERNEL_VREMAP_MAX)))
   {
     if (attr & ATOMIK_PAGEATTR_WRITABLE)
       x86_attr |= PAGE_FLAG_WRITABLE;
@@ -110,8 +112,14 @@ __arch_map_pagetable (void *pd, void *pt, uintptr_t vaddr, uint8_t attr)
   uint32_t *x86_pd   = (uint32_t *) pd;
   uintptr_t x86_pt   = __atomik_remap_to_phys (pt);
   uint8_t   x86_attr = 0;
-
-  if (vaddr < KERNEL_BASE)
+  unsigned int i;
+  
+  if (x86_pd == NULL)
+    x86_pd = (uint32_t *) __atomik_phys_to_remap ((uintptr_t) page_dir);
+  
+  if (vaddr < KERNEL_BASE ||
+      ((vaddr >= KERNEL_VREMAP_BASE) &&
+       (vaddr < KERNEL_VREMAP_BASE + KERNEL_VREMAP_MAX)))
   {
     if (attr & ATOMIK_PAGEATTR_WRITABLE)
       x86_attr |= PAGE_FLAG_WRITABLE;

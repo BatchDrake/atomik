@@ -22,6 +22,9 @@
 #define KERNEL_BASE              0xd0000000 /* The kernel starts here */
 #define KERNEL_REMAP_MAX         0x20000000 /* 512 MiB of kernel objects max */
 
+#define KERNEL_VREMAP_BASE       0xf0000000
+#define KERNEL_VREMAP_MAX        0x01000000 /* 16 MiB sounds reasonable */
+
 #define BOOT_FUNCTION(expr)     expr __attribute__ ((section (".bootcode")))
 #define BOOT_SYMBOL(expr)       expr __attribute__ ((section (".bootdata")))
 

@@ -26,17 +26,18 @@
 
 #define HZ 100
 
-#define PHYS_ADDR_BITS 32
-#define VIRT_ADDR_BITS 32
+#define VIRT_ADDR_ORDER 2
+#define PHYS_ADDR_BITS  BIT (VIRT_ADDR_ORDER + 3)
+#define VIRT_ADDR_BITS  BIT (VIRT_ADDR_ORDER + 3)
 
 #define PAGE_BITS      12
-#define PT_BITS        PAGE_BITS
-#define PD_BITS        PAGE_BITS
-
 #define PTE_BITS       10
 #define PDE_BITS       10
 
-#define PREFERED_STACK_SIZE (1 << (PAGE_BITS + 4))
+#define PT_BITS        (PTE_BITS + VIRT_ADDR_ORDER)
+#define PD_BITS        (PDE_BITS + VIRT_ADDR_ORDER)
+
+#define PREFERED_STACK_SIZE BIT (PAGE_BITS + 4)
 #define PREFERED_STACK_BASE (KERNEL_BASE - PREFERED_STACK_SIZE)
 
 #endif /* _ARCH_MACHINEDEFS_H */
