@@ -341,4 +341,6 @@ error_t pool_free (capslot_t *, void *);
 
 void pool_init (void);
 
+int pool_revoke (capslot_t *);
+
 #endif /* _ATOMIK_CAP_H */

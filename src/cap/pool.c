@@ -58,6 +58,7 @@ struct pool_state
   void    *base;              /* P */
   void    *blocks;            /* P */
   uint8_t *bitmap;            /* P */
+  size_t   bitmap_size;       
   struct buddyhdr **freelist; /* V */
 
   uint8_t levels;
@@ -113,7 +114,11 @@ __get_bits (size_t size)
 static inline uint8_t
 __poolcap_get_levels (const capslot_t *cap)
 {
-  return __get_bits (cap->pool.size);
+  /* In a pool of order N, we will never have
+     N-order objects as they would fill the
+     whole pool allocation space. Note this
+     space is used by metadata as well. */
+  return cap->pool.size;
 }
 
 static inline size_t
@@ -142,13 +147,14 @@ __pool_state_init (struct pool_state *state, const capslot_t *cap)
 
   state->base        = cap->pool.base;
   state->freelist    = (struct buddyhdr **) &meta_size[1];
-  state->levels      = __get_bits (cap->pool.size);
+  state->levels      = cap->pool.size;
   state->bitmap      =
     (uint8_t *) ((uintptr_t) state->base +
                  sizeof (uintptr_t) * (1 + state->levels));
+  state->bitmap_size = __poolcap_get_bitmap_size (cap);
   state->object_size_bits = cap->pool.object_size_bits;
   state->object_size = BIT (state->object_size_bits);
-  state->size        = cap->pool.size;
+  state->size        = BIT (cap->pool.size);
   state->available   = cap->pool.available;
   state->blocks      =
       (void *) ((uintptr_t) state->base +
@@ -431,6 +437,33 @@ __pool_free_buddy (struct pool_state *state, void *addr, uint8_t order)
   }
 }
 
+/* Must be previously initialized */
+static inline void
+__pool_clear_bitmap (struct pool_state *state)
+{
+  unsigned int p = 0;
+  size_t chunk_size;
+  uint8_t  *bitmap_p;
+  void     *bitmap_v;
+
+  bitmap_p = state->bitmap;
+  
+  while (p < state->size)
+  {
+    chunk_size = PAGE_SIZE - PAGE_OFFSET ((uintptr_t) bitmap_p);
+
+    if (chunk_size + p > state->size)
+      chunk_size = state->size - p;
+
+    bitmap_v = pool_translate_meta (bitmap_p, POOL_META_VREMAP_BITMAP);
+
+    memset (bitmap_v, 0, chunk_size);
+
+    p += chunk_size;
+    bitmap_p += chunk_size;
+  }
+}
+
 int
 atomik_pool_retype (capslot_t *cap, objtype_t type, unsigned int size_bits)
 {
@@ -460,24 +493,30 @@ atomik_pool_retype (capslot_t *cap, objtype_t type, unsigned int size_bits)
       type == ATOMIK_OBJTYPE_NULL)
       ATOMIK_FAIL (ATOMIK_ERROR_DELETE_FIRST);
 
+  if (cap->pool.size <= size_bits)
+    ATOMIK_FAIL (ATOMIK_ERROR_NOT_ENOUGH_MEMORY);
+  
   if (type == ATOMIK_OBJTYPE_POOL || type == ATOMIK_OBJTYPE_UNTYPED)
     ATOMIK_FAIL (ATOMIK_ERROR_ILLEGAL_OPERATION);
 
   obj_size = BIT (size_bits);
 
-  pool_objcount = cap->pool.size >> size_bits;
-
   cap->pool.pool_type = type;
   cap->pool.object_size_bits = size_bits;
-  cap->pool.size = pool_objcount;
+  cap->pool.size -= size_bits;
 
   metadata_objs = pool_translate_head (cap->pool.base);
   *metadata_objs = __UNITS (__poolcap_get_metadata_size (cap), obj_size);
-
-  cap->pool.available = pool_objcount - *metadata_objs;
+  
+  pool_objcount = BIT (cap->pool.size) - *metadata_objs;
+  cap->pool.available = pool_objcount;
 
   __pool_state_init (&state, cap);
 
+  __pool_clear_bitmap (&state); 
+
+  i = 0;
+  
   while (i < pool_objcount)
   {
     /* It's MSB because it has to do with the SIZE of the blocks */
@@ -490,7 +529,7 @@ atomik_pool_retype (capslot_t *cap, objtype_t type, unsigned int size_bits)
      */
     order = __msb32 (pool_objcount - i) - 1; /* It will never be zero */
     obj_count = BIT (order);
-
+    
     __pool_insert_buddy (&state, __pool_get_object_base (&state, i), order);
 
     ATOMIK_ASSERT (state.freelist[order] != NULL);
@@ -498,7 +537,7 @@ atomik_pool_retype (capslot_t *cap, objtype_t type, unsigned int size_bits)
     freehdr = pool_translate_meta (
       state.freelist[order],
       POOL_META_VREMAP_BUDDY_NEW);
-
+    
     /* No adjacent blocks */
     freehdr->next = NULL;
     freehdr->prev = NULL;
@@ -614,13 +653,51 @@ pool_free (capslot_t *cap, void *buf)
   __pool_state_init (&state, cap);
   index = __pool_get_object_index (&state, buf);
 
-  if (index > cap->pool.size)
+  if (index >= BIT (cap->pool.size))
     return ATOMIK_ERROR_INVALID_ADDRESS;
 
   /* This should be possible in a better way */
   __pool_free_buddy (&state, buf, 0);
 
   ++cap->pool.available;
+
+  return ATOMIK_SUCCESS;
+}
+
+/* This is a shortcut to revoke all capabilities derived from
+ * a pool. Note that since pools are powers of two, we can
+ * retrieve its original size quite easily.
+ */
+int
+pool_revoke (capslot_t *cap)
+{
+  int error = ATOMIK_SUCCESS;
+  capslot_t *this, *next;
+  
+  if (cap->pool.pool_type != ATOMIK_OBJTYPE_NULL)
+  {
+    cap->pool.size += cap->pool.object_size_bits;
+    cap->pool.object_size_bits = 0;
+    cap->pool.pool_type = ATOMIK_OBJTYPE_NULL;
+    cap->pool.available = 0;
+    
+    this = cap->mdb_child;
+  
+    while (this != NULL)
+    {
+      next = this->mdb_next;
+    
+      if ((error = atomik_capslot_revoke (this)) != ATOMIK_SUCCESS)
+        return error;
+
+      this = next;
+    }
+
+    cap->mdb_child = NULL;
+  
+  }
+  else
+    ATOMIK_ASSERT (cap->mdb_child == NULL);
 
   return ATOMIK_SUCCESS;
 }

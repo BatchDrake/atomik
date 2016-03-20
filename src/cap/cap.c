@@ -231,7 +231,7 @@ capslot_init (
       dest->pool.access = access;
       dest->pool.pool_type = ATOMIK_OBJTYPE_NULL;
       dest->pool.base = phys;
-      dest->pool.size = BIT (size_bits);
+      dest->pool.size = size_bits;
 
       /* No need to initialize bitmap. That will
          happen upon pool retype */
@@ -349,7 +349,7 @@ fail:
 }
 
 int
-atomik_capslot_revoke (capslot_t *slot)
+capslot_revoke_generic (capslot_t *slot)
 {
   capslot_t *this, *next;
   int error;
@@ -370,4 +370,13 @@ atomik_capslot_revoke (capslot_t *slot)
   }
 
   return ATOMIK_SUCCESS;
+}
+
+int
+atomik_capslot_revoke (capslot_t *slot)
+{
+  if (slot->object_type == ATOMIK_OBJTYPE_POOL)
+    return pool_revoke (slot);
+  else
+    return capslot_revoke_generic (slot);
 }
