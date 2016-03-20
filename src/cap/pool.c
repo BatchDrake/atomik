@@ -690,6 +690,8 @@ pool_revoke (capslot_t *cap)
       if ((error = atomik_capslot_revoke (this)) != ATOMIK_SUCCESS)
         return error;
 
+      capslot_clear (this);
+      
       this = next;
     }
 
