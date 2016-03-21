@@ -152,7 +152,7 @@ ASC_PROTO (ut_retype)
   uint8_t size_bits  = SYSCALL_ARG (1) >> 8;
   uint8_t depth      = SYSCALL_ARG (1) >> 16;
   uintptr_t dest_off = SYSCALL_ARG (3); /* Offset in CNode */
-  uintptr_t count    = SYSCALL_ARG (4);
+  unsigned int count = SYSCALL_ARG (4);
 
   capslot_t *ut;
   capslot_t *dest;

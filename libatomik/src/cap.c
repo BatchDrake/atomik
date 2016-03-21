@@ -35,3 +35,80 @@ cap_get_info (cptr_t cptr, uint8_t depth, struct capinfo *info)
   return 0;
 }
 
+int
+cap_delete (cptr_t cptr)
+{
+  int __r;
+
+  __r = __cap_delete (cptr);
+
+  if (__r < 0)
+  {
+    errno = -__r;
+    return -1;
+  }
+  
+  return 0;
+}
+
+int
+cap_revoke (cptr_t cptr)
+{
+  int __r;
+
+  __r = __cap_revoke (cptr);
+
+  if (__r < 0)
+  {
+    errno = -__r;
+    return -1;
+  }
+  
+  return 0;
+}
+
+int
+cap_drop (cptr_t cptr)
+{
+  int __r;
+
+  __r = __cap_drop (cptr);
+
+  if (__r < 0)
+  {
+    errno = -__r;
+    return -1;
+  }
+  
+  return 0;
+}
+
+int
+ut_retype (
+  cptr_t ut,
+  objtype_t type,
+  uint8_t size_bits,
+  uint8_t depth,
+  cptr_t dest,
+  uintptr_t offset,
+  unsigned int count)
+{
+  int __r;
+
+  __r = __ut_retype (
+    ut,
+    (uint8_t) type,
+    size_bits,
+    depth,
+    dest,
+    offset,
+    count);
+
+  if (__r < 0)
+  {
+    errno = -__r;
+    return -1;
+  }
+  
+  return 0;
+}

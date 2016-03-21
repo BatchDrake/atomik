@@ -55,3 +55,73 @@ __cap_get_info (cptr_t cptr, uint8_t depth, struct capinfo *info)
 
   return __r;
 }
+
+int
+__cap_delete (cptr_t cptr)
+{
+  int __r;
+
+  __asm__ __volatile__ (
+    "int $0xa0"
+    : "=a" (__r)
+    : "a" (__ASC_cap_delete),
+      "b" (cptr));
+
+  return __r;
+}
+
+int
+__cap_revoke (cptr_t cptr)
+{
+  int __r;
+
+  __asm__ __volatile__ (
+    "int $0xa0"
+    : "=a" (__r)
+    : "a" (__ASC_cap_revoke),
+      "b" (cptr));
+
+  return __r;
+}
+
+int
+__cap_drop (cptr_t cptr)
+{
+  int __r;
+
+  __asm__ __volatile__ (
+    "int $0xa0"
+    : "=a" (__r)
+    : "a" (__ASC_cap_drop),
+      "b" (cptr));
+
+  return __r;
+}
+
+int
+__ut_retype (
+  cptr_t ut,
+  objtype_t type,
+  uintptr_t size_bits,
+  uintptr_t depth,
+  cptr_t dest,
+  uintptr_t offset,
+  unsigned int count)
+{
+  int __r;
+  uint32_t ecx;
+
+  ecx = type | (size_bits << 8) | (depth << 16);
+  
+  __asm__ __volatile__ (
+    "int $0xa0" 
+    : "=a" (__r)
+    : "a" (__ASC_ut_retype),
+      "b" (ut),
+      "c" (ecx),
+      "d" (dest),
+      "S" (offset),
+      "D" (count));
+
+  return __r;
+}

@@ -19,8 +19,9 @@
 #ifndef _SYSTEM_CAP_H
 #define _SYSTEM_CAP_H
 
+#include <alltypes.h>
+#include <atomik-user.h> 
 #include <errno.h>
-#include <system/call.h>
 
 #define ATOMIK_FULL_DEPTH   0xff
 
@@ -59,6 +60,8 @@ struct capinfo
     uint32_t ci_watermark;
   };
 };
+
+#include <system/call.h>
 
 int cap_get_info (cptr_t, uint8_t, struct capinfo *);
 

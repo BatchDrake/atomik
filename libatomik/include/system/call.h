@@ -19,13 +19,18 @@
 #ifndef _SYSTEM_CALL_H
 #define _SYSTEM_CALL_H
 
-/* Includes from musl */
-#include <alltypes.h>
-#include <atomik-user.h> 
-
-struct capinfo;
-
 /* To be implemented by architecture code */
 int __cap_get_info (cptr_t, uint8_t, struct capinfo *);
+int __cap_delete (cptr_t);
+int __cap_revoke (cptr_t);
+int __cap_drop (cptr_t);
+int __ut_retype (
+  cptr_t,
+  objtype_t,
+  uintptr_t,
+  uintptr_t,
+  cptr_t,
+  uintptr_t,
+  unsigned int);
 
 #endif /* _SYSTEM_CALL_H */
