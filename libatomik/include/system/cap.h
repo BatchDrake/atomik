@@ -64,5 +64,20 @@ struct capinfo
 #include <system/call.h>
 
 int cap_get_info (cptr_t, uint8_t, struct capinfo *);
+int cap_delete (cptr_t);
+int cap_revoke (cptr_t);
+int cap_drop (cptr_t);
+int ut_retype (
+  cptr_t,
+  objtype_t,
+  uint8_t,
+  uint8_t,
+  cptr_t,
+  uintptr_t,
+  unsigned int);
+
+int pool_retype (cptr_t, objtype_t, unsigned int);
+int pool_alloc (cptr_t, cptr_t, unsigned int, size_t);
+int pool_free (cptr_t, void *);
 
 #endif /* _SYSTEM_CAP_H */

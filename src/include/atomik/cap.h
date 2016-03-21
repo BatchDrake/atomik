@@ -324,6 +324,8 @@ int atomik_pool_retype (capslot_t *, objtype_t, unsigned int);
 
 int atomik_pool_alloc (capslot_t *, capslot_t *, size_t);
 
+int atomik_pool_free (capslot_t *, void *);
+
 /*
  * Convenience functions
  */

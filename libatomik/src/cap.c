@@ -112,3 +112,51 @@ ut_retype (
   
   return 0;
 }
+
+int
+pool_retype (cptr_t pool, objtype_t type, unsigned int size)
+{
+  int __r;
+
+  __r = __pool_retype (pool, type, size);
+  
+  if (__r < 0)
+  {
+    errno = -__r;
+    return -1;
+  }
+  
+  return 0;
+}
+
+int
+pool_alloc (cptr_t pool, cptr_t cnode, unsigned int depth, size_t count)
+{
+  int __r;
+
+  __r = __pool_alloc (pool, cnode, depth, count);
+  
+  if (__r < 0)
+  {
+    errno = -__r;
+    return -1;
+  }
+  
+  return 0;
+}
+
+int
+pool_free (cptr_t pool, void *buf)
+{
+  int __r;
+
+  __r = __pool_free (pool, buf);
+  
+  if (__r < 0)
+  {
+    errno = -__r;
+    return -1;
+  }
+  
+  return 0;
+}

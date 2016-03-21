@@ -125,3 +125,51 @@ __ut_retype (
 
   return __r;
 }
+
+int
+__pool_retype (cptr_t pool, objtype_t type, unsigned int size)
+{
+  int __r;
+
+  __asm__ __volatile__ (
+    "int $0xa0" 
+    : "=a" (__r)
+    : "a" (__ASC_pool_retype),
+      "b" (pool),
+      "c" (type),
+      "d" (size));
+
+  return __r;
+}
+
+int
+__pool_alloc (cptr_t pool, cptr_t cnode, unsigned int depth, size_t count)
+{
+  int __r;
+
+  __asm__ __volatile__ (
+    "int $0xa0" 
+    : "=a" (__r)
+    : "a" (__ASC_pool_alloc),
+      "b" (pool),
+      "c" (cnode),
+      "d" (depth),
+      "S" (count));
+
+  return __r;
+}
+
+int
+__pool_free (cptr_t pool, void *buf)
+{
+  int __r;
+
+  __asm__ __volatile__ (
+    "int $0xa0" 
+    : "=a" (__r)
+    : "a" (__ASC_pool_free),
+      "b" (pool),
+      "c" (buf));
+
+  return __r;
+}

@@ -664,6 +664,20 @@ pool_free (capslot_t *cap, void *buf)
   return ATOMIK_SUCCESS;
 }
 
+int
+atomik_pool_free (capslot_t *cap, void *addr)
+{
+  error_t exception = ATOMIK_SUCCESS;
+
+  if (cap->object_type != ATOMIK_OBJTYPE_POOL)
+    ATOMIK_FAIL (ATOMIK_ERROR_INVALID_CAPABILITY);
+
+  exception = pool_free (cap, addr);
+  
+fail:
+    return -exception;
+}
+
 /* This is a shortcut to revoke all capabilities derived from
  * a pool. Note that since pools are powers of two, we can
  * retrieve its original size quite easily.

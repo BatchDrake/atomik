@@ -33,4 +33,8 @@ int __ut_retype (
   uintptr_t,
   unsigned int);
 
+int __pool_retype (cptr_t, objtype_t, unsigned int);
+int __pool_alloc (cptr_t, cptr_t, unsigned int, size_t);
+int __pool_free (cptr_t, void *);
+
 #endif /* _SYSTEM_CALL_H */

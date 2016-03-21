@@ -28,6 +28,7 @@
 #define AOT_EP      6
 #define AOT_NOTIFY  7
 #define AOT_TCB     8
+#define AOT_POOL    9
 
 #define ASC_NO(aot, func) \
   (((aot) << 24) | (func))
@@ -50,6 +51,10 @@
 #define __ASC_sched_push   ASC_NO (AOT_TCB, 1)
 #define __ASC_sched_pull   ASC_NO (AOT_TCB, 2)
 #define __ASC_sched_yield  ASC_NO (AOT_TCB, 3)
+
+#define __ASC_pool_retype  ASC_NO (AOT_POOL, 0)
+#define __ASC_pool_alloc   ASC_NO (AOT_POOL, 1)
+#define __ASC_pool_free    ASC_NO (AOT_POOL, 2)
 
 #define __ASC_d_halt 0xfffffffe
 #define __ASC_d_putc 0xffffffff
