@@ -61,13 +61,15 @@ typedef struct tcb tcb_t;
 
 CPPASSERT (sizeof (tcb_t) < BIT (ATOMIK_TCB_SIZE_BITS));
 
+int atomik_tcb_set_regs (capslot_t *, void *);
+
 int atomik_tcb_configure (
-                      capslot_t *,
-                      capslot_t *,
-                      uint8_t,
-                      capslot_t *,
-                      capslot_t *,
-                      capslot_t *);
+  capslot_t *,
+  capslot_t *,
+  uint8_t,
+  capslot_t *,
+  capslot_t *,
+  capslot_t *);
 
 capslot_t *elf32_load_tcb (void *, size_t, capslot_t *);
 

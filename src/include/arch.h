@@ -42,10 +42,10 @@ void __arch_map_page (void *, void *, uintptr_t, uint8_t);
 void __arch_map_pagetable (void *, void *, uintptr_t, uint8_t);
 
 /* Resolve existing map */
-uintptr_t __arch_resolve_page (void *, uintptr_t, uint8_t, error_t *);
+uintptr_t __arch_resolve_page (const void *, uintptr_t, uint8_t, error_t *);
 
 /* Get remapped page table address */
-uintptr_t *__arch_resolve_pagetable (void *, uintptr_t, uint8_t, error_t *);
+uintptr_t *__arch_resolve_pagetable (const void *, uintptr_t, uint8_t, error_t *);
 
 /* Map kernel addresses to page directory */
 void __arch_map_kernel (void *);

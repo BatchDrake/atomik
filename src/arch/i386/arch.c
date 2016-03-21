@@ -111,7 +111,7 @@ __arch_map_pagetable (void *pd, void *pt, uintptr_t vaddr, uint8_t attr)
 {
   uint32_t *x86_pd   = (uint32_t *) pd;
   uintptr_t x86_pt   = __atomik_remap_to_phys (pt);
-  uint8_t   x86_attr = 0;
+  uint16_t  x86_attr = 0;
   unsigned int i;
   
   if (x86_pd == NULL)
@@ -136,29 +136,43 @@ __arch_map_pagetable (void *pd, void *pt, uintptr_t vaddr, uint8_t attr)
   }
 }
 
+static inline int
+check_page_access (uint16_t x86_control, uint8_t access)
+{
+  uint16_t mask;
+
+  mask = PAGE_FLAG_PRESENT;
+
+  if (!(access & ATOMIK_PAGEATTR_KERNEL))
+    mask |= PAGE_FLAG_USERLAND;
+  
+  if (access & ATOMIK_PAGEATTR_WRITABLE)
+    mask |= PAGE_FLAG_WRITABLE;
+
+  return (x86_control & mask) == mask;
+}
+
 /* This returns a remapped address */
 uintptr_t *
-__arch_resolve_pagetable (void *pd, uintptr_t vaddr, uint8_t access, error_t *err)
+__arch_resolve_pagetable (const void *pd, uintptr_t vaddr, uint8_t access, error_t *err)
 {
   error_t   exception = ATOMIK_SUCCESS;
   uint32_t *x86_pd = (uint32_t *) pd;
   uint32_t  x86_pde;
-  uint8_t   x86_attr = 0;
+  uint16_t  x86_attr = 0;
 
   x86_pde  = x86_pd[VADDR_GET_PDE_INDEX (vaddr)];
   x86_attr = x86_pde & PAGE_CONTROL_MASK;
 
-  if (!(x86_attr & PAGE_FLAG_PRESENT))
-    ATOMIK_FAIL (ATOMIK_ERROR_INVALID_ADDRESS);
-
-  if ((x86_attr & access) != access)
+  if (!check_page_access (x86_attr, access))
     ATOMIK_FAIL (ATOMIK_ERROR_ACCESS_DENIED);
 
   /* Page table contains physical address, but we need the remapped addres */
   return __atomik_phys_to_remap (x86_pde & PAGE_MASK);
 
 fail:
-  *err = exception;
+  if (err != NULL)
+    *err = exception;
 
   return (uintptr_t *) -1;
 }
@@ -171,7 +185,7 @@ __arch_init_tcb (struct tcb *tcb)
 
 /* This always return a physical address */
 uintptr_t
-__arch_resolve_page (void *pd, uintptr_t vaddr, uint8_t access, error_t *err)
+__arch_resolve_page (const void *pd, uintptr_t vaddr, uint8_t access, error_t *err)
 {
   error_t   exception = ATOMIK_SUCCESS;
   uint32_t *x86_pt;
@@ -186,12 +200,9 @@ __arch_resolve_page (void *pd, uintptr_t vaddr, uint8_t access, error_t *err)
   x86_pte  = x86_pt[VADDR_GET_PTE_INDEX (vaddr)];
   x86_attr = x86_pte & PAGE_CONTROL_MASK;
 
-  if (!(x86_attr & PAGE_FLAG_PRESENT))
-    ATOMIK_FAIL (ATOMIK_ERROR_INVALID_ADDRESS);
-
-  if ((x86_attr & access) != access)
+  if (!check_page_access (x86_attr, access))
     ATOMIK_FAIL (ATOMIK_ERROR_ACCESS_DENIED);
-
+  
   return x86_pte & PAGE_MASK;
 
 fail:

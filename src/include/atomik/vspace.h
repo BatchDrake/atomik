@@ -182,4 +182,6 @@ uintptr_t capslot_vspace_resolve (capslot_t *, uintptr_t, uint8_t, error_t *);
 
 int capslot_vspace_switch (capslot_t *);
 
+int vspace_can_read (const uintptr_t *, const void *, size_t);
+
 #endif /* _ATOMIK_VSPACE_H */

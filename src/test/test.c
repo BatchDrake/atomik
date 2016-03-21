@@ -210,7 +210,7 @@ test_vspace (struct atomik_test_env *env)
   {
     if (kernel_virt_start + i != (uintptr_t) &tss)
     {
-      phys = capslot_vspace_resolve (destination, kernel_virt_start + i, 0, &exception);
+      phys = capslot_vspace_resolve (destination, kernel_virt_start + i, ATOMIK_PAGEATTR_KERNEL, &exception);
 
       ATOMIK_TEST_ASSERT (phys != ATOMIK_INVALID_ADDR);
 

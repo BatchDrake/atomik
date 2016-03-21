@@ -164,6 +164,27 @@ fail:
 }
 
 int
+vspace_can_read (const uintptr_t *vspace, const void *vaddr, size_t size)
+{
+  uintptr_t this;
+  uintptr_t last;
+  
+  this = PAGE_START ((uintptr_t) vaddr);
+  last = PAGE_START ((uintptr_t) vaddr + size - 1);
+
+  while (this <= last)
+    if (__arch_resolve_page (
+          vspace,
+          this,
+          ATOMIK_PAGEATTR_READABLE,
+          NULL) == ATOMIK_INVALID_ADDR)
+      return 0;
+
+  return 1;
+}
+
+
+int
 capslot_vspace_switch (capslot_t *pd)
 {
   error_t exception = ATOMIK_SUCCESS;

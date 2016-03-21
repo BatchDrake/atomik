@@ -33,6 +33,7 @@
 #include <atomik-user.h> /* Needed for syscall numbers */
 
 extern tcb_t *curr_tcb;
+extern uintptr_t *curr_vspace;
 
 #define ASC_FUNC(name) JOIN (__i386_decode_, name)
 #define ASC_PROTO(name) \
@@ -52,18 +53,23 @@ extern tcb_t *curr_tcb;
     return;                                     \
   }
 
+#define SYSCALL_RESOLVE_CAP_DEPTH(cap, cptr, depth)  \
+  if ((cap = capslot_cspace_resolve (                \
+         curr_tcb->cspace,                           \
+         cptr,                                       \
+         depth,                                      \
+         NULL)) == NULL)                             \
+    SYSCALL_FAIL (ATOMIK_ERROR_FAILED_LOOKUP)       
+
+#define SYSCALL_RESOLVE_CAP(dest, cptr)         \
+  SYSCALL_RESOLVE_CAP_DEPTH (dest, cptr, ATOMIK_FULL_DEPTH)
+
 ASC_PROTO (cap_get_info)
 {
-  cptr_t cptr = (cptr_t) SYSCALL_ARG (0);
-  unsigned int depth =   SYSCALL_ARG (1);
+  unsigned int depth = SYSCALL_ARG (1);
   capslot_t *cap;
 
-  if ((cap = capslot_cspace_resolve (
-         curr_tcb->cspace,
-         cptr,
-         depth,
-         NULL)) == NULL)
-    SYSCALL_FAIL (ATOMIK_ERROR_FAILED_LOOKUP);
+  SYSCALL_RESOLVE_CAP_DEPTH (cap, SYSCALL_ARG (0), depth);
 
   SYSCALL_RET (cap->object_type);
   
@@ -115,62 +121,157 @@ ASC_PROTO (cap_get_info)
 
 ASC_PROTO (cap_delete)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  capslot_t *cap;
+
+  SYSCALL_RESOLVE_CAP (cap, SYSCALL_ARG (0));
+
+  SYSCALL_RET (atomik_capslot_delete (cap));
 }
 
 ASC_PROTO (cap_revoke)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  capslot_t *cap;
+
+  SYSCALL_RESOLVE_CAP (cap, SYSCALL_ARG (0));
+
+  SYSCALL_RET (atomik_capslot_revoke (cap));
 }
 
 ASC_PROTO (cap_drop)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  capslot_t *cap;
+
+  SYSCALL_RESOLVE_CAP (cap, SYSCALL_ARG (0));
+
+  SYSCALL_RET (atomik_capslot_drop (cap, SYSCALL_ARG (1)));
 }
 
 ASC_PROTO (ut_retype)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  objtype_t type     = (uint8_t) SYSCALL_ARG (1);
+  uint8_t size_bits  = SYSCALL_ARG (1) >> 8;
+  uint8_t depth      = SYSCALL_ARG (1) >> 16;
+  uintptr_t dest_off = SYSCALL_ARG (3); /* Offset in CNode */
+  uintptr_t count    = SYSCALL_ARG (4);
+
+  capslot_t *ut;
+  capslot_t *dest;
+
+  SYSCALL_RESOLVE_CAP (ut, SYSCALL_ARG (0));
+  SYSCALL_RESOLVE_CAP_DEPTH (dest, SYSCALL_ARG (2), depth);
+  
+  if (dest->object_type != ATOMIK_OBJTYPE_CNODE)
+    SYSCALL_FAIL (ATOMIK_ERROR_INVALID_CAPABILITY);
+
+  if (dest_off + count > CNODE_COUNT (dest))
+    SYSCALL_FAIL (ATOMIK_ERROR_RANGE);
+  
+  SYSCALL_RET (
+    atomik_untyped_retype (
+      ut,
+      type,
+      size_bits,
+      CNODE_BASE (dest) + dest_off,
+      count));
 }
 
 ASC_PROTO (page_remap)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  capslot_t *cap;
+
+  SYSCALL_RESOLVE_CAP (cap, SYSCALL_ARG (0));
+
+  SYSCALL_RET (atomik_page_remap (cap, SYSCALL_ARG (1)));
 }
 
 ASC_PROTO (pt_map_page)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  uintptr_t vaddr = SYSCALL_ARG (2);
+  
+  capslot_t *pt;
+  capslot_t *pg;
+
+  SYSCALL_RESOLVE_CAP (pt, SYSCALL_ARG (0));
+  SYSCALL_RESOLVE_CAP (pg, SYSCALL_ARG (1));
+  
+  SYSCALL_RET (atomik_pt_map_page (pt, pg, vaddr));
 }
 
 ASC_PROTO (pt_remap)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  capslot_t *cap;
+
+  SYSCALL_RESOLVE_CAP (cap, SYSCALL_ARG (0));
+
+  SYSCALL_RET (atomik_pt_remap (cap, SYSCALL_ARG (1)));
 }
 
 ASC_PROTO (pd_map_pt)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  capslot_t *pd;
+  capslot_t *pt;
+
+  SYSCALL_RESOLVE_CAP (pd, SYSCALL_ARG (0));
+  SYSCALL_RESOLVE_CAP (pt, SYSCALL_ARG (1));
+  
+  SYSCALL_RET (atomik_pd_map_pagetable (pd, pt, SYSCALL_ARG (2)));
 }
 
 ASC_PROTO (tcb_config)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  struct tcb_data *td;
+  capslot_t *tcb;
+  capslot_t *f_ep;
+  capslot_t *croot;
+  capslot_t *vroot;
+  capslot_t *ipc;
+  int ret;
+  
+  td = (struct tcb_data *) SYSCALL_ARG (1);
+  
+  if (!vspace_can_read (curr_vspace, td, sizeof (struct tcb_data)))
+    SYSCALL_FAIL (ATOMIK_ERROR_INVALID_ADDRESS);
+  
+  SYSCALL_RESOLVE_CAP (tcb,   SYSCALL_ARG (0));
+  SYSCALL_RESOLVE_CAP (f_ep,  td->td_fep);
+  SYSCALL_RESOLVE_CAP_DEPTH (croot, td->td_croot, td->td_depth);
+  SYSCALL_RESOLVE_CAP (vroot, td->td_vroot);
+  SYSCALL_RESOLVE_CAP (ipc,   td->td_ipc);
+
+  if ((ret = atomik_tcb_set_regs (tcb, &td->td_regs)) < 0)
+    SYSCALL_FAIL (-ret);
+  
+  SYSCALL_RET (
+    atomik_tcb_configure (
+      tcb,
+      f_ep,
+      td->td_prio,
+      croot,
+      vroot,
+      ipc));
 }
 
 ASC_PROTO (sched_push)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  capslot_t *tcb;
+
+  SYSCALL_RESOLVE_CAP (tcb, SYSCALL_ARG (0));
+  
+  SYSCALL_RET (atomik_sched_push_tcb (tcb));
 }
 
 ASC_PROTO (sched_pull)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  capslot_t *tcb;
+
+  SYSCALL_RESOLVE_CAP (tcb, SYSCALL_ARG (0));
+  
+  SYSCALL_RET (atomik_sched_pull_tcb (tcb));
 }
 
 ASC_PROTO (sched_yield)
 {
-  SYSCALL_RET (-ATOMIK_ERROR_INVALID_SYSCALL);
+  atomik_sched_schedule ();
 }
 
 void

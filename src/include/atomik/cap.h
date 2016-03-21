@@ -56,11 +56,11 @@
    ATOMIK_ACCESS_GRANT)
 
 #define UT_BASE(utp) (utp)->ut.base
-#define UT_SIZE(utp) (1 << (utp)->ut.size_bits)
+#define UT_SIZE(utp) BIT ((utp)->ut.size_bits)
 
 #define CNODE_BASE(cnodep) (cnodep)->cnode.base
-#define CNODE_SIZE(cnodep) (1 << ((cnodep)->cnode.size_bits + ATOMIK_CAPSLOT_SIZE_BITS))
-#define CNODE_COUNT(cnodep) (1 << (cnodep)->cnode.size_bits)
+#define CNODE_SIZE(cnodep) BIT ((cnodep)->cnode.size_bits + ATOMIK_CAPSLOT_SIZE_BITS)
+#define CNODE_COUNT(cnodep) BIT ((cnodep)->cnode.size_bits)
 #define CNODE_GUARD(cnodep) (cnodep)->cnode.guard
 #define CNODE_GUARD_BITS(cnodep) (cnodep)->cnode.guard_bits
 

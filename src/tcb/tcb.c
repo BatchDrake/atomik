@@ -54,11 +54,10 @@ __page_belongs_to_pd (capslot_t *page, capslot_t *pd)
   return page->page.pt->pt.pd == pd;
 }
 
-#include <stdio.h>
 int
 atomik_tcb_configure (capslot_t *tcb,
                       capslot_t *f_ep,
-                      uint8_t prio,
+                      uint8_t    prio,
                       capslot_t *croot,
                       capslot_t *vroot,
                       capslot_t *ipcbuffer)

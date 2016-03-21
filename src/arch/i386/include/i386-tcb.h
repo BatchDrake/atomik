@@ -42,6 +42,20 @@ struct i386_tcb_regs
   uint32_t r[I386_TCB_REG_NUM];
 };
 
+struct tcb_data
+{
+  cptr_t  td_tcb;
+  cptr_t  td_fep;
+  cptr_t  td_croot;
+  cptr_t  td_vroot;
+  cptr_t  td_ipc;
+
+  uint8_t td_prio;
+  uint8_t td_depth;
+
+  struct i386_tcb_regs td_regs;
+};
+
 typedef struct i386_tcb_regs tcb_regs_t;
 
 #endif /* _ARCH_I386_TCB_H */
